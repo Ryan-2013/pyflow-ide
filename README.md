@@ -63,6 +63,30 @@ pyflow/
 | `右鍵節點` | 新增/刪除/插入呼叫 |
 | `拖曳 ● 綠點` | 建立函式呼叫關係 |
 
+
+## 👥 開發者
+
+<table>
+  <tr>
+    <td align="center">
+      <a href="https://github.com/Ryan-2013">
+        <img src="https://github.com/Ryan-2013.png" width="64"/><br/>
+        <b>Ryan</b>
+      </a><br/>
+      <sub>創始人 · 產品設計</sub>
+    </td>
+    <td align="center">
+      <a href="https://anthropic.com">
+        <img src="https://avatars.githubusercontent.com/u/76263028?s=64" width="64"/><br/>
+        <b>Claude</b>
+      </a><br/>
+      <sub>AI 協同開發 · 全端實作</sub>
+    </td>
+  </tr>
+</table>
+
+> 本專案由 Ryan 主導方向，Claude（Anthropic）負責全端實作，在一次對話中完成所有 19,810 行程式碼。
+
 ## 📄 授權
 
 MIT License
