@@ -1,0 +1,61 @@
+{
+  "name": "pyflow-ide",
+  "version": "1.0.0",
+  "description": "Python 流程視覺化 IDE — ast 精確解析，即時同步，一鍵執行",
+  "author": "PyFlow",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev":   "NODE_ENV=development electron .",
+    "build:mac":   "electron-builder --mac",
+    "build:win":   "electron-builder --win",
+    "build:linux": "electron-builder --linux",
+    "build:all":   "electron-builder --mac --win --linux"
+  },
+  "build": {
+    "appId": "com.pyflow.ide",
+    "productName": "PyFlow IDE",
+    "copyright": "PyFlow IDE",
+    "asar": true,
+    "extraResources": [
+      {
+        "from": "pyflow/",
+        "to":   "pyflow/",
+        "filter": [
+          "**/*",
+          "!**/__pycache__/**",
+          "!**/*.pyc",
+          "!**/*.pyo",
+          "!**/.DS_Store"
+        ]
+      }
+    ],
+    "mac": {
+      "category": "public.app-category.developer-tools",
+      "icon": "build/icon.icns",
+      "target": [{ "target": "dmg", "arch": ["x64", "arm64"] }],
+      "darkModeSupport": true
+    },
+    "win": {
+      "icon": "build/icon.ico",
+      "target": [{ "target": "nsis", "arch": ["x64"] }]
+    },
+    "linux": {
+      "icon": "build/icon.png",
+      "category": "Development",
+      "target": [{ "target": "AppImage", "arch": ["x64"] }]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "installerIcon": "build/icon.ico"
+    },
+    "dmg": {
+      "title": "${productName}"
+    }
+  },
+  "devDependencies": {
+    "electron": "^28.1.0",
+    "electron-builder": "^24.9.1"
+  }
+}
