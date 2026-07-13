@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="96" fill="#0a0a0a"/>
+  <!-- Hexagon -->
+  <polygon points="256,80 384,160 384,320 256,400 128,320 128,160"
+           fill="none" stroke="#D97706" stroke-width="20" stroke-linejoin="round"/>
+  <!-- Inner ⬡ -->
+  <polygon points="256,140 332,184 332,272 256,316 180,272 180,184"
+           fill="#D97706" opacity="0.15"/>
+  <!-- Flow lines -->
+  <line x1="256" y1="180" x2="256" y2="230" stroke="#D97706" stroke-width="8" stroke-linecap="round"/>
+  <circle cx="256" cy="256" r="26" fill="#D97706"/>
+  <line x1="256" y1="282" x2="256" y2="332" stroke="#D97706" stroke-width="8" stroke-linecap="round"/>
+  <!-- Side nodes -->
+  <circle cx="180" cy="256" r="16" fill="#F59E0B" opacity="0.7"/>
+  <circle cx="332" cy="256" r="16" fill="#F59E0B" opacity="0.7"/>
+  <!-- Text -->
+  <text x="256" y="460" text-anchor="middle"
+        font-family="system-ui,sans-serif" font-weight="900"
+        font-size="64" fill="#D97706" letter-spacing="4">PyFlow</text>
+</svg>

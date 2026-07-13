@@ -1,0 +1,126 @@
+name: 🚀 Build & Release
+
+on:
+  push:
+    tags:
+      - 'v*'           # 推送 tag（例如 v1.0.0）才觸發
+  workflow_dispatch:   # 也可手動觸發
+
+permissions:
+  contents: write      # 允許建立 Release
+
+jobs:
+  build:
+    name: Build (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            artifact: '*.AppImage,*.deb'
+          - os: windows-latest
+            artifact: '*.exe'
+          - os: macos-latest
+            artifact: '*.dmg'
+
+    steps:
+      # ── 取得程式碼 ─────────────────────────────────────────────
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # ── 設定 Python ────────────────────────────────────────────
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      # ── 安裝 Python 依賴 + PyInstaller ─────────────────────────
+      - name: Install Python deps
+        run: |
+          pip install -r pyflow/requirements.txt
+          pip install pyinstaller
+
+      # ── 打包 Python 後端（PyInstaller）────────────────────────
+      - name: Bundle Python backend
+        run: |
+          pyinstaller pyflow.spec --distpath dist-server --clean --noconfirm
+        env:
+          PYTHONOPTIMIZE: '1'
+
+      - name: List server binary
+        run: ls -la dist-server/
+
+      # ── 設定 Node.js ───────────────────────────────────────────
+      - name: Setup Node.js 18
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      # ── 安裝 Node 依賴 ─────────────────────────────────────────
+      - name: Install Node deps
+        run: npm ci
+
+      # ── macOS：產生臨時簽名（避免 Gatekeeper 問題）────────────
+      - name: Generate self-signed cert (macOS)
+        if: matrix.os == 'macos-latest'
+        run: |
+          security create-keychain -p "" build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p "" build.keychain
+        continue-on-error: true
+
+      # ── 建立 Electron 安裝包 ──────────────────────────────────
+      - name: Build Electron app
+        run: npm run dist
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'   # 跳過程式碼簽名
+          APPLE_ID: ''
+          APPLE_APP_SPECIFIC_PASSWORD: ''
+
+      # ── 列出產出的安裝包 ──────────────────────────────────────
+      - name: List dist files
+        run: ls -la dist/
+
+      # ── 上傳到 GitHub Release ─────────────────────────────────
+      - name: Upload to GitHub Release
+        uses: softprops/action-gh-release@v1
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: |
+            dist/*.exe
+            dist/*.dmg
+            dist/*.AppImage
+            dist/*.deb
+          name: PyFlow IDE ${{ github.ref_name }}
+          body: |
+            ## ⬡ PyFlow IDE ${{ github.ref_name }}
+
+            ### 下載
+
+            | 平台 | 檔案 | 說明 |
+            |------|------|------|
+            | Windows | `PyFlow-IDE-Setup-*.exe` | 安裝程式（推薦）|
+            | Windows | `PyFlow-IDE-*.exe` | 免安裝版 |
+            | macOS | `PyFlow-IDE-*.dmg` | 拖曳安裝 |
+            | Linux | `PyFlow-IDE-*.AppImage` | 直接執行 |
+            | Linux | `pyflow-ide_*.deb` | Debian/Ubuntu |
+
+            ### 安裝說明
+
+            **Windows**：下載 `*-Setup.exe`，執行安裝程式。
+            macOS 如遇「無法開啟」：System Preferences → Security → Allow Anyway
+            **Linux AppImage**：`chmod +x PyFlow-*.AppImage && ./PyFlow-*.AppImage`
+
+            ### 需要額外安裝（提升功能）
+            ```bash
+            pip install python-lsp-server[all]  # Python 補全
+            go install golang.org/x/tools/gopls@latest  # Go 補全
+            ```
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

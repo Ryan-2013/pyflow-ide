@@ -1,61 +1,118 @@
 {
   "name": "pyflow-ide",
   "version": "1.0.0",
-  "description": "Python 流程視覺化 IDE — ast 精確解析，即時同步，一鍵執行",
-  "author": "PyFlow",
+  "description": "⬡ Code flow visualization IDE",
   "main": "main.js",
-  "scripts": {
-    "start": "electron .",
-    "dev":   "NODE_ENV=development electron .",
-    "build:mac":   "electron-builder --mac",
-    "build:win":   "electron-builder --win",
-    "build:linux": "electron-builder --linux",
-    "build:all":   "electron-builder --mac --win --linux"
+  "author": {
+    "name": "Ryan",
+    "email": "ryan@pyflow-ide.com"
   },
-  "build": {
-    "appId": "com.pyflow.ide",
-    "productName": "PyFlow IDE",
-    "copyright": "PyFlow IDE",
-    "asar": true,
-    "extraResources": [
-      {
-        "from": "pyflow/",
-        "to":   "pyflow/",
-        "filter": [
-          "**/*",
-          "!**/__pycache__/**",
-          "!**/*.pyc",
-          "!**/*.pyo",
-          "!**/.DS_Store"
-        ]
-      }
-    ],
-    "mac": {
-      "category": "public.app-category.developer-tools",
-      "icon": "build/icon.icns",
-      "target": [{ "target": "dmg", "arch": ["x64", "arm64"] }],
-      "darkModeSupport": true
-    },
-    "win": {
-      "icon": "build/icon.ico",
-      "target": [{ "target": "nsis", "arch": ["x64"] }]
-    },
-    "linux": {
-      "icon": "build/icon.png",
-      "category": "Development",
-      "target": [{ "target": "AppImage", "arch": ["x64"] }]
-    },
-    "nsis": {
-      "oneClick": false,
-      "allowToChangeInstallationDirectory": true,
-      "installerIcon": "build/icon.ico"
-    },
-    "dmg": {
-      "title": "${productName}"
-    }
+  "license": "MIT",
+  "homepage": "https://github.com/Ryan-2013/pyflow-ide",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Ryan-2013/pyflow-ide.git"
+  },
+  "scripts": {
+    "start":     "electron .",
+    "dev":       "NODE_ENV=development electron .",
+    "dist":      "electron-builder",
+    "dist:win":  "electron-builder --win",
+    "dist:mac":  "electron-builder --mac",
+    "dist:linux":"electron-builder --linux",
+    "pack":      "electron-builder --dir",
+    "postinstall":"electron-builder install-app-deps"
+  },
+  "dependencies": {
+    "electron-updater": "^6.1.7"
   },
   "devDependencies": {
-    "electron": "^28.1.0",
-    "electron-builder": "^24.9.1"
+    "electron":         "^28.0.0",
+    "electron-builder": "^24.9.0"
+  },
+  "build": {
+    "appId":       "com.pyflow.ide",
+    "productName": "PyFlow IDE",
+    "copyright":   "Copyright © 2026 Ryan",
+    "asar":        true,
+    "asarUnpack": ["resources/server/**"],
+    "directories": {
+      "output":    "dist",
+      "buildResources": "assets"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "package.json",
+      "!pyflow/**",
+      "!tools/**",
+      "!*.spec",
+      "!*.sh",
+      "!*.bat",
+      "!dist/**",
+      "!dist-server/**"
+    ],
+    "extraResources": [
+      {
+        "from": "dist-server/",
+        "to":   "server/",
+        "filter": ["**/*"]
+      }
+    ],
+    "win": {
+      "target": [
+        { "target": "nsis",     "arch": ["x64"] },
+        { "target": "portable", "arch": ["x64"] }
+      ],
+      "icon":          "assets/icon.ico",
+      "publisherName": "PyFlow IDE",
+      "verifyUpdateCodeSignature": false
+    },
+    "nsis": {
+      "oneClick":          false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName":      "PyFlow IDE",
+      "installerIcon":     "assets/icon.ico",
+      "uninstallerIcon":   "assets/icon.ico",
+      "installerHeaderIcon":"assets/icon.ico",
+      "deleteAppDataOnUninstall": false
+    },
+    "mac": {
+      "target": [
+        { "target": "dmg", "arch": ["x64", "arm64"] }
+      ],
+      "icon":          "assets/icon.icns",
+      "category":      "public.app-category.developer-tools",
+      "darkModeSupport": true,
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false
+    },
+    "dmg": {
+      "title":    "PyFlow IDE",
+      "icon":     "assets/icon.icns",
+      "contents": [
+        { "x": 130, "y": 220 },
+        { "x": 410, "y": 220, "type": "link", "path": "/Applications" }
+      ]
+    },
+    "linux": {
+      "target":   ["AppImage", "deb"],
+      "icon":     "assets/icon.png",
+      "category": "Development",
+      "description": "Code flow visualization IDE"
+    },
+    "appImage": {
+      "artifactName": "PyFlow-IDE-${version}.AppImage"
+    },
+    "deb": {
+      "depends": ["libgtk-3-0", "libnotify4", "libnss3", "libxss1", "libxtst6"]
+    },
+    "publish": {
+      "provider": "github",
+      "owner":    "Ryan-2013",
+      "repo":     "pyflow-ide"
+    }
   }
 }
