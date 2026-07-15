@@ -5,7 +5,7 @@
  * 並開啟瀏覽器視窗
  */
 const { app, BrowserWindow, shell, ipcMain, dialog } = require('electron');
-const { spawn }   = require('child_process');
+const { spawn, spawnSync } = require('child_process');
 const path        = require('path');
 const net         = require('net');
 const os          = require('os');
@@ -17,6 +17,8 @@ const START_TIMEOUT = 90000;   // 低資源環境下 PyInstaller 後端首次解
 
 let mainWindow    = null;
 let serverProcess = null;
+let serverConsolePidFile = null;
+let keepServerConsoleOpen = false;
 
 function logLaunch(message) {
   const line = `[${new Date().toISOString()}] ${message}\n`;
@@ -29,17 +31,65 @@ function logLaunch(message) {
 }
 
 // ── 找到 Python 後端可執行路徑 ─────────────────────────────────
+function quotePowerShellLiteral(value) {
+  return `'${String(value).replace(/'/g, "''")}'`;
+}
+
+function makeVisibleWindowsServerLauncher(bin) {
+  const port = String(PORT);
+  const userData = app.getPath('userData');
+  const pidFile = path.join(userData, 'pyflow-server-console.pid');
+  const logFile = path.join(userData, 'pyflow-server-console.log');
+
+  fs.mkdirSync(userData, { recursive: true });
+  try { fs.rmSync(pidFile, { force: true }); } catch (_) {}
+
+  const command = [
+    `$ErrorActionPreference = 'Continue'`,
+    `try { $Host.UI.RawUI.WindowTitle = 'PyFlow Server (${port})' } catch { }`,
+    `Set-Content -LiteralPath ${quotePowerShellLiteral(pidFile)} -Value $PID -Encoding ASCII`,
+    `Set-Location -LiteralPath ${quotePowerShellLiteral(process.resourcesPath)}`,
+    `$env:PYFLOW_PORT = ${quotePowerShellLiteral(port)}`,
+    `$env:PYTHONUTF8 = '1'`,
+    `$env:PYTHONIOENCODING = 'utf-8'`,
+    `Write-Host 'PyFlow server diagnostic console' -ForegroundColor Cyan`,
+    `Write-Host ('Executable: ' + ${quotePowerShellLiteral(bin)})`,
+    `Write-Host ('Port: ' + ${quotePowerShellLiteral(port)})`,
+    `Write-Host ('Log: ' + ${quotePowerShellLiteral(logFile)})`,
+    `Write-Host ''`,
+    `if (-not (Test-Path -LiteralPath ${quotePowerShellLiteral(bin)})) {`,
+    `  Write-Host 'Server executable was not found.' -ForegroundColor Red`,
+    `  return`,
+    `}`,
+    `& ${quotePowerShellLiteral(bin)} --port ${quotePowerShellLiteral(port)} *>&1 | Tee-Object -FilePath ${quotePowerShellLiteral(logFile)} -Append`,
+    `$exitCode = if ($null -ne $LASTEXITCODE) { $LASTEXITCODE } else { 0 }`,
+    `Write-Host ''`,
+    `Write-Host ('PyFlow server exited with code ' + $exitCode) -ForegroundColor Yellow`,
+    `Write-Host 'Keep this window open while checking or sending the error text.' -ForegroundColor Yellow`,
+  ].join('\r\n');
+  const encodedCommand = Buffer.from(command, 'utf16le').toString('base64');
+  serverConsolePidFile = pidFile;
+
+  return {
+    cmd: 'powershell.exe',
+    args: ['-NoLogo', '-NoExit', '-ExecutionPolicy', 'Bypass', '-EncodedCommand', encodedCommand],
+    inheritStdio: true,
+    visibleConsole: true,
+  };
+}
+
 function getServerCmd() {
   if (app.isPackaged) {
     // 打包模式：使用 PyInstaller 打包的二進位
     const ext  = process.platform === 'win32' ? '.exe' : '';
     const bin  = path.join(process.resourcesPath, 'server', `pyflow-server${ext}`);
-    return { cmd: bin, args: ['--port', String(PORT)] };
+    if (process.platform === 'win32') return makeVisibleWindowsServerLauncher(bin);
+    return { cmd: bin, args: ['--port', String(PORT)], visibleConsole: false };
   } else {
     // 開發模式：直接用 Python
     const python = process.platform === 'win32' ? 'python' : 'python3';
     const appPy  = path.join(__dirname, 'pyflow', 'app.py');
-    return { cmd: python, args: [appPy, '--port', String(PORT)] };
+    return { cmd: python, args: [appPy, '--port', String(PORT)], visibleConsole: false };
   }
 }
 
@@ -61,12 +111,14 @@ function waitForPort(port, timeout) {
 
 // ── 啟動 Python 後端 ─────────────────────────────────────────────
 function startServer() {
-  const { cmd, args } = getServerCmd();
+  const { cmd, args, visibleConsole, inheritStdio } = getServerCmd();
   const cwd = app.isPackaged ? process.resourcesPath : __dirname;
-  logLaunch(`[PyFlow] Starting server: ${cmd} ${args.join(' ')}`);
+  const displayArgs = visibleConsole ? '[visible PowerShell encoded command]' : args.join(' ');
+  logLaunch(`[PyFlow] Starting server: ${cmd} ${displayArgs}`);
   logLaunch(`[PyFlow] cwd=${cwd} PYFLOW_PORT=${PORT}`);
+  if (visibleConsole) logLaunch('[PyFlow] Server console is visible for diagnostics.');
 
-  serverProcess = spawn(cmd, args, {
+  const spawnOptions = {
     env: {
       ...process.env,
       PYFLOW_PORT: String(PORT),
@@ -74,8 +126,11 @@ function startServer() {
       PYTHONIOENCODING: 'utf-8',
     },
     cwd,
-    windowsHide: true,
-  });
+    windowsHide: false,
+  };
+  if (inheritStdio) spawnOptions.stdio = 'inherit';
+
+  serverProcess = spawn(cmd, args, spawnOptions);
 
   serverProcess.stdout?.on('data', d => logLaunch(`[server stdout] ${String(d).trimEnd()}`));
   serverProcess.stderr?.on('data', d => logLaunch(`[server stderr] ${String(d).trimEnd()}`));
@@ -97,6 +152,26 @@ function startServer() {
 }
 
 // ── 建立主視窗 ─────────────────────────────────────────────────
+function stopServer() {
+  if (serverConsolePidFile && process.platform === 'win32') {
+    try {
+      const pid = fs.readFileSync(serverConsolePidFile, 'utf8').trim();
+      if (/^\d+$/.test(pid)) {
+        logLaunch(`[PyFlow] Stopping visible server console pid=${pid}`);
+        spawnSync('taskkill.exe', ['/PID', pid, '/T', '/F'], { windowsHide: true });
+      }
+    } catch (err) {
+      logLaunch(`[PyFlow] Could not stop visible server console: ${err.message}`);
+    }
+    serverConsolePidFile = null;
+  }
+
+  if (serverProcess) {
+    try { serverProcess.kill('SIGTERM'); } catch (_) {}
+    serverProcess = null;
+  }
+}
+
 function createWindow() {
   const { width, height } = require('electron').screen.getPrimaryDisplay().workAreaSize;
 
@@ -150,6 +225,7 @@ app.whenReady().then(async () => {
     console.log(`[PyFlow] Server ready on port ${PORT}`);
     createWindow();
   } catch(err) {
+    if (serverConsolePidFile) keepServerConsoleOpen = true;
     dialog.showErrorBox('啟動逾時',
       `後端伺服器在 ${START_TIMEOUT/1000} 秒內未啟動。\n\n` +
       '請檢查防火牆設定或以管理員身份執行。');
@@ -164,10 +240,11 @@ app.on('activate', () => {
 
 // ── 關閉時停止後端 ─────────────────────────────────────────────
 app.on('before-quit', () => {
-  if (serverProcess) {
-    serverProcess.kill('SIGTERM');
-    serverProcess = null;
+  if (keepServerConsoleOpen) {
+    logLaunch('[PyFlow] Leaving visible server console open for diagnostics.');
+    return;
   }
+  stopServer();
 });
 
 app.on('window-all-closed', () => {
