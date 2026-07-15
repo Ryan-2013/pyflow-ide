@@ -57,7 +57,9 @@ jobs:
 
       - name: Build Electron app (Windows)
         if: runner.os == 'Windows'
-        run: npx electron-builder --win portable --x64 --publish never
+        run: |
+          npx electron-builder --win --dir --publish never
+          Compress-Archive -Path dist/win-unpacked/* -DestinationPath "dist/PyFlow-IDE-Windows-${{ github.ref_name }}.zip" -Force
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
           WIN_CSC_LINK: ''
@@ -82,6 +84,7 @@ jobs:
         with:
           files: |
             dist/*.exe
+            dist/*.zip
             dist/*.dmg
             dist/*.AppImage
             dist/*.deb
@@ -93,12 +96,12 @@ jobs:
 
             | 平台 | 檔案 |
             |------|------|
-            | Windows | `PyFlow-IDE-Portable-*.exe` |
+            | Windows | `PyFlow-IDE-Windows-*.zip` |
             | macOS | `PyFlow-IDE-*.dmg` |
             | Linux | `PyFlow-IDE-*.AppImage` |
 
             ### 安裝說明
-            - **Windows**: 直接執行安裝程式
+            - **Windows**: 解壓縮後執行 `PyFlow IDE.exe`
             - **macOS**: 拖曳到 Applications
             - **Linux**: `chmod +x *.AppImage && ./*.AppImage`
 
