@@ -662,6 +662,7 @@ svg text{user-select:none;-webkit-user-select:none;pointer-events:none}
 #sb-eol:hover{color:var(--tx3);background:var(--bg4)}
 #sb-indent{font-size:11px;color:var(--tx2);font-weight:450;cursor:pointer}
 #sb-indent:hover{color:var(--tx3);background:var(--bg4)}
+#perfBar{transition:color .3s ease}
 
 /* ════ Node Editing (Bidirectional) ════ */
 /* Editable node hover state */
@@ -1037,6 +1038,456 @@ svg text{user-select:none;-webkit-user-select:none;pointer-events:none}
   display: none; position: fixed; inset: 0; z-index: 9999; cursor: ew-resize;
 }
 #dragOverlay.ns { cursor: ns-resize; }
+
+/* ════════════════════════════════════════════════════════════════
+ *  UI/UX POLISH — Animations · Themes · Micro-interactions
+ * ════════════════════════════════════════════════════════════════ */
+
+/* ── Smooth everything ── */
+*, *::before, *::after {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ── Thin custom scrollbars ── */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--bd3); border-radius: 9px; }
+::-webkit-scrollbar-thumb:hover { background: var(--tx4); }
+::-webkit-scrollbar-corner { background: transparent; }
+
+/* ── Node entry animation ── */
+@keyframes nodeIn {
+  from { opacity: 0; transform: scale(0.94) translateY(3px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+@keyframes edgeIn {
+  from { opacity: 0; stroke-dashoffset: 40; }
+  to   { opacity: 1; stroke-dashoffset: 0; }
+}
+@keyframes fadeSlideUp {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+@keyframes pulseGlow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(217,119,6,.0); }
+  50%       { box-shadow: 0 0 0 6px rgba(217,119,6,.15); }
+}
+
+/* Apply to SVG nodes */
+#gL .nd, #gD .nd { animation: nodeIn .18s ease-out both; }
+#gL .nd:nth-child(1)  { animation-delay: .00s; }
+#gL .nd:nth-child(2)  { animation-delay: .03s; }
+#gL .nd:nth-child(3)  { animation-delay: .06s; }
+#gL .nd:nth-child(4)  { animation-delay: .09s; }
+#gL .nd:nth-child(5)  { animation-delay: .12s; }
+#gL .nd:nth-child(6)  { animation-delay: .15s; }
+#gL .nd:nth-child(7)  { animation-delay: .18s; }
+#gL .nd:nth-child(8)  { animation-delay: .21s; }
+#gL .nd:nth-child(9)  { animation-delay: .24s; }
+#gL .nd:nth-child(n+10) { animation-delay: .27s; }
+
+/* ── Skeleton loader ── */
+.skeleton {
+  background: linear-gradient(90deg, var(--bg3) 25%, var(--bg4) 50%, var(--bg3) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s infinite;
+  border-radius: var(--rs);
+}
+
+/* ── Panel transitions ── */
+.bp { animation: fadeSlideUp .15s ease-out; }
+.tab { animation: fadeSlideUp .12s ease-out; }
+
+/* ── Button micro-interactions ── */
+.tbtn, .btt, .install-btn, .ob-next, .commit-do {
+  transition: transform .1s ease, box-shadow .1s ease, background .15s ease, color .15s ease !important;
+}
+.tbtn:active, .install-btn:active { transform: scale(.93) !important; }
+.btt:active  { transform: scale(.96) !important; }
+.ob-next:active, .commit-do:active { transform: scale(.95) !important; }
+
+/* ── Active tab glow ── */
+.tab.act {
+  animation: pulseGlow 2s ease infinite;
+  box-shadow: 0 0 0 1px rgba(217,119,6,.2);
+}
+
+/* ── File tree hover ── */
+.ti { transition: background .08s ease, padding-left .1s ease; }
+.ti:hover { padding-left: 6px !important; }
+
+/* ── View mode transition ── */
+.ep, .dp, .sb {
+  transition: flex .2s cubic-bezier(.4,0,.2,1), width .2s cubic-bezier(.4,0,.2,1) !important;
+}
+
+/* ── Toast v2 — with progress bar ── */
+.toast {
+  border-radius: var(--rm) !important;
+  box-shadow: 0 8px 32px rgba(0,0,0,.5), 0 2px 8px rgba(0,0,0,.3) !important;
+  backdrop-filter: blur(12px) !important;
+  border: 1px solid rgba(255,255,255,.08) !important;
+  overflow: hidden;
+  position: relative;
+}
+.toast::after {
+  content: '';
+  position: absolute;
+  bottom: 0; left: 0;
+  height: 2px;
+  background: currentColor;
+  opacity: .4;
+  animation: toastBar var(--toast-dur, 2.5s) linear forwards;
+}
+@keyframes toastBar {
+  from { width: 100%; }
+  to   { width: 0%; }
+}
+
+/* ── Diagram edge curves (applied via JS patch) ── */
+.edge-path { stroke-linecap: round; stroke-linejoin: round; }
+
+/* ── Node hover lift effect ── */
+.nd { cursor: pointer; }
+.nd .nb {
+  transition: filter .15s ease, stroke .15s ease, stroke-width .12s ease !important;
+}
+.nd:hover .nb {
+  filter: drop-shadow(0 4px 12px rgba(0,0,0,.4)) drop-shadow(0 0 6px rgba(217,119,6,.12)) !important;
+}
+
+/* ── Catppuccin Mocha theme CSS vars ── */
+.ws[data-theme="catppuccin"] {
+  --bg:  #1e1e2e; --bg2: #181825; --bg3: #313244; --bg4: #45475a; --bg5: #585b70;
+  --tx:  #cdd6f4; --tx2: #bac2de; --tx3: #cdd6f4; --tx4: #6c7086;
+  --acc: #cba6f7; --acc2: #b4befe; --acc3: #cba6f7;
+  --bd:  #313244; --bd2: #45475a; --bd3: #585b70;
+  --sel: rgba(203,166,247,.12);
+  --ya:  #f9e2af;
+}
+
+/* ── Tokyo Night theme CSS vars ── */
+.ws[data-theme="tokyonight"] {
+  --bg:  #1a1b26; --bg2: #16161e; --bg3: #292e42; --bg4: #3b4261; --bg5: #565f89;
+  --tx:  #a9b1d6; --tx2: #9aa5ce; --tx3: #c0caf5; --tx4: #565f89;
+  --acc: #7aa2f7; --acc2: #2ac3de; --acc3: #7aa2f7;
+  --bd:  #292e42; --bd2: #3b4261; --bd3: #565f89;
+  --sel: rgba(122,162,247,.12);
+  --ya:  #e0af68;
+}
+
+/* ── Nord theme CSS vars ── */
+.ws[data-theme="nord"] {
+  --bg:  #2e3440; --bg2: #242933; --bg3: #3b4252; --bg4: #434c5e; --bg5: #4c566a;
+  --tx:  #d8dee9; --tx2: #e5e9f0; --tx3: #eceff4; --tx4: #616e88;
+  --acc: #88c0d0; --acc2: #81a1c1; --acc3: #88c0d0;
+  --bd:  #3b4252; --bd2: #434c5e; --bd3: #4c566a;
+  --sel: rgba(136,192,208,.12);
+  --ya:  #ebcb8b;
+}
+
+/* ── Empty state illustration ── */
+.cg-empty, .prob-empty {
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 10px; height: 100%; min-height: 120px;
+  color: var(--tx4); font-size: 13px;
+  user-select: none;
+}
+.empty-icon {
+  font-size: 36px; opacity: .2;
+  animation: fadeSlideUp .3s ease-out;
+}
+
+/* ── Diagram gradient node fills ── */
+.nd-fn .nb  { fill: url(#grad-fn) !important; }
+.nd-cls .nb { fill: url(#grad-cls) !important; }
+.nd-imp .nb { fill: url(#grad-imp) !important; }
+
+/* ── Sidebar section headers ── */
+.sb-sec {
+  font: 700 9.5px var(--sans);
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--tx4);
+  padding: 12px 12px 4px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+/* ════════════════════════════════════════════════════════════════
+ *  CLAUDE UI THEME — 對齊 Claude.ai 的視覺語言
+ * ════════════════════════════════════════════════════════════════ */
+
+/* Claude 的字體系統 */
+:root {
+  --sans:   -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  --mono:   'SFMono-Regular', 'SF Mono', 'Cascadia Code', 'Fira Code',
+            'JetBrains Mono', Consolas, 'Courier New', monospace;
+  --font-sz: 13.5px;
+  --line-h:  1.6;
+}
+
+/* Claude Dark 主題 CSS 變數（更精確） */
+.ws[data-theme="claude"] {
+  --bg:   #0a0a0a;
+  --bg2:  #111111;
+  --bg3:  #1a1814;   /* 帶一點暖褐 */
+  --bg4:  #242018;
+  --bg5:  #2e2a22;
+  --tx:   #f0ece6;   /* Claude 的 off-white */
+  --tx2:  #d4cfc8;
+  --tx3:  #e8e3dc;
+  --tx4:  #6b6560;
+  --acc:  #D97706;   /* Claude amber */
+  --acc2: #B45309;
+  --acc3: #F59E0B;
+  --bd:   #1e1c18;
+  --bd2:  #2a2720;
+  --bd3:  #3a362c;
+  --sel:  rgba(217,119,6,.14);
+  --ya:   #F59E0B;
+
+  /* Claude 特有的圓角 */
+  --rs:   6px;
+  --rm:   10px;
+  --rxl:  16px;
+  --rpill:999px;
+}
+
+/* Claude 風格的 Toolbar */
+.ws[data-theme="claude"] .tb {
+  background: linear-gradient(180deg, #141210 0%, #0f0d0b 100%);
+  border-bottom: 1px solid #1e1c18;
+}
+
+/* Claude 風格的側邊欄 */
+.ws[data-theme="claude"] .sb {
+  background: linear-gradient(180deg, #0d0b09 0%, #0a0908 100%);
+}
+
+/* Claude 風格的底部面板 */
+.ws[data-theme="claude"] .bot {
+  background: #0d0b09;
+  border-top: 1px solid #1e1c18;
+}
+
+/* Claude 風格的 Tab */
+.ws[data-theme="claude"] .tab.act {
+  background: rgba(217,119,6,.12);
+  color: #F59E0B;
+  border-bottom: 2px solid #D97706;
+}
+
+/* Claude 風格的按鈕 */
+.ws[data-theme="claude"] .tbtn:hover {
+  background: rgba(217,119,6,.1);
+  color: #F59E0B;
+}
+
+/* Claude 風格的 Input */
+.ws[data-theme="claude"] input,
+.ws[data-theme="claude"] textarea {
+  background: #141210;
+  border-color: #2a2720;
+  color: #e8e3dc;
+}
+.ws[data-theme="claude"] input:focus,
+.ws[data-theme="claude"] textarea:focus {
+  border-color: #D97706;
+  box-shadow: 0 0 0 2px rgba(217,119,6,.15);
+}
+
+/* Claude 風格的 Scrollbar */
+.ws[data-theme="claude"] ::-webkit-scrollbar-thumb {
+  background: #2a2720;
+}
+.ws[data-theme="claude"] ::-webkit-scrollbar-thumb:hover {
+  background: #3a362c;
+}
+
+/* Claude 風格的 Code block（非 Monaco 部分）*/
+.ws[data-theme="claude"] code,
+.ws[data-theme="claude"] pre {
+  background: #141210;
+  border: 1px solid #1e1c18;
+  font-family: var(--mono);
+  font-size: 13px;
+}
+
+/* Claude 風格的 AI 面板訊息 */
+.ws[data-theme="claude"] .ai-msg.assistant {
+  background: #141210;
+  border: 1px solid #1e1c18;
+  border-radius: var(--rm);
+}
+.ws[data-theme="claude"] .ai-msg.user {
+  background: rgba(217,119,6,.08);
+  border: 1px solid rgba(217,119,6,.15);
+  border-radius: var(--rm);
+}
+
+/* Claude 風格的節點 */
+.ws[data-theme="claude"] .nd .nb {
+  stroke: #2a2720 !important;
+}
+.ws[data-theme="claude"] .nd:hover .nb {
+  stroke: rgba(217,119,6,.5) !important;
+}
+
+/* Claude 的 Logo 字體 */
+.tlogo {
+  font-weight: 700;
+  letter-spacing: -.02em;
+  color: var(--tx3);
+}
+.ws[data-theme="claude"] .tlogo {
+  color: #F59E0B;
+  text-shadow: 0 0 20px rgba(217,119,6,.3);
+}
+
+/* Status bar Claude 風格 */
+.ws[data-theme="claude"] .sbar {
+  background: #0a0908;
+  border-top: 1px solid #1a1814;
+  color: #6b6560;
+}
+
+/* Claude 風格的選取顏色 */
+.ws[data-theme="claude"] ::selection {
+  background: rgba(217,119,6,.25);
+}
+
+/* ════ AI AGENT PANEL ════ */
+.agent-wrap   { display:flex; flex-direction:column; height:100%; }
+
+/* Toolbar */
+.agent-tb     { display:flex; align-items:center; gap:6px; padding:8px 12px;
+                border-bottom:1px solid var(--bd); flex-shrink:0; flex-wrap:wrap; }
+.agent-status { font:600 11px var(--sans); padding:3px 10px; border-radius:var(--rpill);
+                flex-shrink:0; }
+.agent-status.idle    { background:var(--bg4);               color:var(--tx4); }
+.agent-status.running { background:rgba(245,158,11,.15);     color:#F59E0B; }
+.agent-status.done    { background:rgba(34,197,94,.12);      color:#4ade80; }
+
+/* Run/Pause buttons */
+.agent-run-btn { background:var(--acc); color:#fff; border:none; padding:5px 16px;
+                 border-radius:var(--rpill); font:600 12px var(--sans); cursor:pointer;
+                 box-shadow:0 2px 8px rgba(217,119,6,.3); transition:all .12s; }
+.agent-run-btn:hover   { background:var(--acc2); transform:scale(1.03); }
+.agent-run-btn:disabled{ opacity:.4; cursor:not-allowed; transform:none; box-shadow:none; }
+.agent-run-btn.pause   { background:rgba(239,68,68,.2); color:#f87171; box-shadow:none; }
+
+/* Local AI badge */
+.local-ai-badge { font:600 10.5px var(--sans); padding:2px 8px;
+                  border-radius:var(--rpill); flex-shrink:0; }
+.local-ai-badge.on  { background:rgba(34,197,94,.12); color:#4ade80; border:1px solid rgba(34,197,94,.2); }
+.local-ai-badge.off { background:var(--bg4); color:var(--tx4); border:1px solid var(--bd2); }
+
+/* Model selector */
+.agent-model-sel { background:var(--bg3); color:var(--tx3); border:1px solid var(--bd2);
+                   border-radius:var(--rs); padding:3px 8px; font:12px var(--sans); }
+
+/* Quick tasks grid */
+.agent-quick  { padding:8px 12px; border-bottom:1px solid var(--bd); flex-shrink:0; }
+.agent-quick-title { font:700 10px var(--sans); color:var(--tx4); letter-spacing:.1em;
+                     text-transform:uppercase; margin-bottom:6px; }
+.quick-grid   { display:flex; flex-wrap:wrap; gap:5px; }
+.quick-btn    { background:var(--bg3); border:1px solid var(--bd2); color:var(--tx2);
+                padding:4px 10px; border-radius:var(--rs); font:12px var(--sans);
+                cursor:pointer; transition:all .1s; white-space:nowrap; }
+.quick-btn:hover  { background:var(--bg4); color:var(--tx3); border-color:var(--bd3); }
+.quick-btn:active { transform:scale(.95); }
+
+/* Custom input */
+.agent-input-row { display:flex; gap:6px; padding:8px 12px; border-bottom:1px solid var(--bd);
+                   flex-shrink:0; }
+.agent-inp    { flex:1; background:var(--bg3); color:var(--tx3); border:1px solid var(--bd2);
+                border-radius:var(--rs); padding:6px 10px; font:13px var(--sans);
+                outline:none; }
+.agent-inp:focus { border-color:var(--acc); }
+.agent-add-btn { background:var(--acc); color:#fff; border:none; padding:6px 14px;
+                 border-radius:var(--rpill); font:600 12px var(--sans); cursor:pointer;
+                 white-space:nowrap; transition:all .1s; }
+.agent-add-btn:hover { background:var(--acc2); }
+
+/* Task list */
+.agent-tasks  { flex:1; overflow-y:auto; }
+.task-item    { border-bottom:1px solid var(--bd); transition:background .1s; }
+.task-item:hover { background:var(--bg3); }
+.task-hdr     { display:flex; align-items:center; gap:8px; padding:8px 12px; cursor:pointer; }
+.task-icon    { font-size:14px; flex-shrink:0; width:20px; text-align:center; }
+.task-title   { flex:1; font:13.5px var(--sans); color:var(--tx3); min-width:0;
+                overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.task-badge   { font:600 10px var(--sans); padding:2px 7px; border-radius:var(--rpill);
+                flex-shrink:0; }
+.task-badge.pending   { background:var(--bg4);              color:var(--tx4); }
+.task-badge.running   { background:rgba(245,158,11,.2);     color:#F59E0B; animation:pulseGlow 1.5s ease infinite; }
+.task-badge.done      { background:rgba(34,197,94,.12);     color:#4ade80; }
+.task-badge.failed    { background:rgba(239,68,68,.12);     color:#f87171; }
+.task-badge.cancelled { background:var(--bg4);              color:var(--tx4); }
+.task-del     { background:none; border:none; color:var(--tx4); cursor:pointer;
+                font-size:16px; padding:0 4px; opacity:0; transition:opacity .1s; }
+.task-item:hover .task-del { opacity:.7; }
+.task-del:hover { opacity:1 !important; color:#f87171; }
+
+/* Task result */
+.task-result  { margin:0 12px 10px; padding:10px; background:var(--bg3);
+                border:1px solid var(--bd2); border-radius:var(--rm);
+                font:13px/1.7 var(--sans); color:var(--tx2);
+                white-space:pre-wrap; word-break:break-word;
+                max-height:300px; overflow-y:auto; display:none; }
+.task-result.show { display:block; }
+.task-result code { font-family:var(--mono); font-size:12px; }
+
+/* Streaming cursor */
+.streaming-cursor::after { content:'▋'; animation:cursorBlink .6s step-end infinite; color:var(--acc3); }
+@keyframes cursorBlink { 0%,100%{opacity:1} 50%{opacity:0} }
+
+/* Empty state */
+.agent-empty  { display:flex; flex-direction:column; align-items:center;
+                justify-content:center; height:100%; gap:10px; color:var(--tx4);
+                font-size:13px; user-select:none; }
+
+/* ── 底部面板關閉/收合控制 ── */
+.bot-ctrl {
+  display: flex; align-items: center; gap: 4px;
+  margin-left: auto; flex-shrink: 0;
+}
+.bot-ctrl-btn {
+  background: none; border: none; color: var(--tx4);
+  cursor: pointer; padding: 2px 6px; border-radius: var(--rs);
+  font-size: 13px; line-height: 1; transition: all .1s;
+}
+.bot-ctrl-btn:hover { background: var(--bg4); color: var(--tx3); }
+.bot-ctrl-btn.close:hover { color: #f87171; }
+
+/* 面板收合後的狀態 */
+.bot.collapsed { height: 28px !important; overflow: hidden; }
+.bot.collapsed .bp,
+.bot.collapsed .bot-grip { display: none; }
+.bot.collapsed .btt-wrap { border-bottom: none; }
+
+/* 隱藏 tab 的 × 按鈕（hover 才出現）*/
+.btt-x {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 14px; height: 14px; border-radius: 3px;
+  font-size: 11px; color: var(--tx4); margin-left: 4px;
+  opacity: 0; transition: opacity .1s, background .1s;
+  vertical-align: middle; line-height: 1;
+  cursor: pointer;
+}
+.btt:hover .btt-x { opacity: .6; }
+.btt-x:hover { opacity: 1 !important; background: rgba(239,68,68,.15); color: #f87171; }
+
+/* 被隱藏的 tab */
+.btt[data-hidden="true"] { display: none; }
 @media(prefers-reduced-motion:no-preference){
   .nd{animation:nf .2s ease both}
   @keyframes nf{from{opacity:0;transform:scale(.97)}to{opacity:1;transform:none}}
@@ -1191,6 +1642,7 @@ svg text{user-select:none;-webkit-user-select:none;pointer-events:none}
     <div class="btt" id="bt-gl" onclick="showP('gitlog');loadGitLog()">📜 歷史</div>
     <div class="btt" id="bt-nb" onclick="showP('notebook')"><i class="devicon-jupyter-plain colored devicon-sz"></i> Notebook</div>
     <div class="btt" id="bt-ai" onclick="showP('ai')">⬡ AI</div>
+    <div class="btt" id="bt-agent" onclick="showP('agent')">🤖 Agent</div>
     <div class="btt" id="bt-ig" onclick="showP('importgraph');loadImportGraph()">🕸 依賴圖</div>
     <div class="btr">
       <button class="bi" onclick="clrP()">🗑</button>
@@ -1354,7 +1806,54 @@ svg text{user-select:none;-webkit-user-select:none;pointer-events:none}
   </div>
 
   <!-- AI Assistant panel -->
-  <div class="bp" id="p-ai">
+  <div class="bp" id="p-agent" style="display:none">
+  <div class="agent-wrap">
+    <!-- Toolbar -->
+    <div class="agent-tb">
+      <span id="agentStatus" class="agent-status idle">⬤ 閒置</span>
+      <button id="agentRunBtn" class="agent-run-btn" onclick="agentToggleRun()">▶ 開始執行</button>
+      <select id="agentModelSel" class="agent-model-sel" onchange="agentOnModelChange(this)">
+        <option value="anthropic:claude-sonnet-4-6">⬡ Claude Sonnet</option>
+        <option value="openai:gpt-4o">✦ GPT-4o</option>
+        <option value="openai:gpt-4o-mini">✧ GPT-4o Mini</option>
+        <option value="local:auto" id="agentLocalOpt" disabled>🖥 本地 AI（未偵測到）</option>
+      </select>
+      <span id="localAIBadge" class="local-ai-badge off" title="點擊重新偵測" onclick="agentDetectLocal()">🖥 Local AI: 偵測中</span>
+      <button onclick="agentClearDone()" style="background:none;border:none;color:var(--tx4);cursor:pointer;font:12px var(--sans);padding:3px 8px">🗑 清除完成</button>
+    </div>
+    <!-- Quick tasks -->
+    <div class="agent-quick">
+      <div class="agent-quick-title">快速任務</div>
+      <div class="quick-grid">
+        <button class="quick-btn" onclick="agentAddQuick('docstring')">📝 寫文件字串</button>
+        <button class="quick-btn" onclick="agentAddQuick('find_bugs')">🔍 找 Bug</button>
+        <button class="quick-btn" onclick="agentAddQuick('write_tests')">🧪 寫測試</button>
+        <button class="quick-btn" onclick="agentAddQuick('refactor')">♻ 重構</button>
+        <button class="quick-btn" onclick="agentAddQuick('explain')">💡 解釋程式碼</button>
+        <button class="quick-btn" onclick="agentAddQuick('optimize')">⚡ 效能優化</button>
+        <button class="quick-btn" onclick="agentAddQuick('security')">🔒 安全審查</button>
+        <button class="quick-btn" onclick="agentAddQuick('type_hints')">🏷 加型別標注</button>
+        <button class="quick-btn" onclick="agentAddQuick('simplify')">✂ 簡化程式碼</button>
+        <button class="quick-btn" onclick="agentAddQuick('readme')">📄 寫 README</button>
+      </div>
+    </div>
+    <!-- Custom input -->
+    <div class="agent-input-row">
+      <input class="agent-inp" id="agentInput" placeholder="輸入自訂任務…例如：把所有函式改成 async"
+             onkeydown="if(event.key==='Enter')agentAddCustom()">
+      <button class="agent-add-btn" onclick="agentAddCustom()">＋ 加入</button>
+    </div>
+    <!-- Task list -->
+    <div class="agent-tasks" id="agentTaskList">
+      <div class="agent-empty">
+        <div style="font-size:32px;opacity:.15">🤖</div>
+        <div>選擇快速任務或輸入自訂指令</div>
+        <div style="font-size:11.5px;color:var(--tx4)">按「開始執行」，AI 會自動完成所有任務</div>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="bp" id="p-ai">
     <div class="ai-panel">
       <div class="ai-key-bar">
         <input class="ai-key-inp" id="aiKeyInput" type="password"
@@ -8101,6 +8600,1517 @@ function showP(name) {
   _origShowPDrag(name);
   setTimeout(addPopoutButtons, 100);
 }
+
+/* ════════════════════════════════════════════════════════════════
+ *  UI/UX POLISH
+ *  ① Catppuccin Mocha + Tokyo Night + Nord 主題
+ *  ② 貝茲曲線邊（diagram edges → bezier）
+ *  ③ 流程圖漸層節點
+ *  ④ 骨架屏 loading
+ *  ⑤ Toast 升級（圖示 + 進度條）
+ *  ⑥ 主題切換動畫
+ * ════════════════════════════════════════════════════════════════ */
+
+/* ── ① NEW MONACO THEMES ────────────────────────────────────────── */
+const _catppuccinTheme = {
+  base: 'vs-dark', inherit: true,
+  rules: [
+    { token: '',             foreground: 'cdd6f4', background: '1e1e2e' },
+    { token: 'comment',      foreground: '6c7086', fontStyle: 'italic' },
+    { token: 'keyword',      foreground: 'cba6f7', fontStyle: 'bold' },
+    { token: 'string',       foreground: 'a6e3a1' },
+    { token: 'number',       foreground: 'fab387' },
+    { token: 'type',         foreground: 'f5c2e7' },
+    { token: 'function',     foreground: '89b4fa' },
+    { token: 'variable',     foreground: 'cdd6f4' },
+    { token: 'operator',     foreground: '89dceb' },
+    { token: 'delimiter',    foreground: 'cdd6f4' },
+    { token: 'annotation',   foreground: 'f38ba8' },
+    { token: 'regexp',       foreground: 'f9e2af' },
+    { token: 'attribute',    foreground: 'fab387' },
+    { token: 'tag',          foreground: 'f38ba8' },
+  ],
+  colors: {
+    'editor.background':            '#1e1e2e',
+    'editor.foreground':            '#cdd6f4',
+    'editor.lineHighlightBackground':'#313244',
+    'editor.selectionBackground':   '#45475a',
+    'editorLineNumber.foreground':  '#585b70',
+    'editorLineNumber.activeForeground': '#cdd6f4',
+    'editorCursor.foreground':      '#f5e0dc',
+    'editorWhitespace.foreground':  '#313244',
+    'editorIndentGuide.background1':'#313244',
+    'editorIndentGuide.activeBackground1': '#585b70',
+    'editor.findMatchBackground':   '#fab38750',
+    'editor.findMatchHighlightBackground': '#fab38730',
+    'editorBracketMatch.background':'#cba6f720',
+    'editorBracketMatch.border':    '#cba6f7',
+    'scrollbar.shadow':             '#00000000',
+    'scrollbarSlider.background':   '#585b7060',
+    'scrollbarSlider.hoverBackground': '#6c708680',
+    'minimap.background':           '#181825',
+  }
+};
+
+const _tokyoNightTheme = {
+  base: 'vs-dark', inherit: true,
+  rules: [
+    { token: '',           foreground: 'a9b1d6', background: '1a1b26' },
+    { token: 'comment',    foreground: '565f89', fontStyle: 'italic' },
+    { token: 'keyword',    foreground: 'bb9af7', fontStyle: 'bold' },
+    { token: 'string',     foreground: '9ece6a' },
+    { token: 'number',     foreground: 'ff9e64' },
+    { token: 'type',       foreground: '2ac3de' },
+    { token: 'function',   foreground: '7aa2f7' },
+    { token: 'variable',   foreground: 'c0caf5' },
+    { token: 'operator',   foreground: '89ddff' },
+    { token: 'annotation', foreground: 'f7768e' },
+    { token: 'regexp',     foreground: 'e0af68' },
+    { token: 'tag',        foreground: 'f7768e' },
+  ],
+  colors: {
+    'editor.background':            '#1a1b26',
+    'editor.foreground':            '#a9b1d6',
+    'editor.lineHighlightBackground':'#292e42',
+    'editor.selectionBackground':   '#33467c',
+    'editorLineNumber.foreground':  '#363b54',
+    'editorLineNumber.activeForeground': '#737aa2',
+    'editorCursor.foreground':      '#c0caf5',
+    'editorBracketMatch.background':'#7aa2f720',
+    'editorBracketMatch.border':    '#7aa2f7',
+    'scrollbarSlider.background':   '#3b426160',
+    'minimap.background':           '#16161e',
+  }
+};
+
+const _nordTheme = {
+  base: 'vs-dark', inherit: true,
+  rules: [
+    { token: '',           foreground: 'd8dee9', background: '2e3440' },
+    { token: 'comment',    foreground: '4c566a', fontStyle: 'italic' },
+    { token: 'keyword',    foreground: '81a1c1', fontStyle: 'bold' },
+    { token: 'string',     foreground: 'a3be8c' },
+    { token: 'number',     foreground: 'b48ead' },
+    { token: 'type',       foreground: '8fbcbb' },
+    { token: 'function',   foreground: '88c0d0' },
+    { token: 'variable',   foreground: 'd8dee9' },
+    { token: 'operator',   foreground: '81a1c1' },
+    { token: 'annotation', foreground: 'bf616a' },
+  ],
+  colors: {
+    'editor.background':            '#2e3440',
+    'editor.foreground':            '#d8dee9',
+    'editor.lineHighlightBackground':'#3b4252',
+    'editor.selectionBackground':   '#434c5e',
+    'editorLineNumber.foreground':  '#4c566a',
+    'editorCursor.foreground':      '#d8dee9',
+    'editorBracketMatch.background':'#88c0d020',
+    'editorBracketMatch.border':    '#88c0d0',
+    'minimap.background':           '#242933',
+  }
+};
+
+// Register themes after Monaco init
+function registerExtraThemes() {
+  if (!window.monaco) return;
+  try {
+    monaco.editor.defineTheme('catppuccin', _catppuccinTheme);
+    monaco.editor.defineTheme('tokyonight', _tokyoNightTheme);
+    monaco.editor.defineTheme('nord',        _nordTheme);
+  } catch(e) {}
+}
+
+/* ── Updated theme system ────────────────────────────────────────── */
+const _THEMES_EXTENDED = ['dark','claude','steam','switch2','catppuccin','tokyonight','nord'];
+
+const _origSetThemePolish = setTheme;
+function setTheme(t) {
+  const ws = document.getElementById('mainWs') || document.querySelector('.ws');
+  // Remove old theme attrs
+  _THEMES_EXTENDED.forEach(th => ws?.removeAttribute(`data-${th}`));
+  ws?.setAttribute('data-theme', t);
+
+  // Monaco theme mapping
+  const monacoMap = {
+    dark: 'vs-dark', claude: 'claude', steam: 'steam',
+    switch2: 'switch2', catppuccin: 'catppuccin',
+    tokyonight: 'tokyonight', nord: 'nord'
+  };
+  if (monacoEd && window.monaco) {
+    try { monaco.editor.setTheme(monacoMap[t] || 'vs-dark'); } catch {}
+  }
+
+  // Smooth fade transition
+  document.body.style.transition = 'background .25s ease, color .25s ease';
+  _origSetThemePolish(t);
+  setTimeout(() => document.body.style.transition = '', 300);
+}
+
+/* ── ② BEZIER EDGES in flow diagram ──────────────────────────────── */
+// Patch edge drawing to use smooth bezier curves
+const _origDrawEdge = null;  // Will patch renderFlowDiagram internals
+
+function makeBezierPath(x1, y1, x2, y2, nodeH) {
+  const dy = Math.abs(y2 - y1);
+  const dx = Math.abs(x2 - x1);
+  const cp = Math.min(Math.max(dy * 0.45, 20), 60);
+  // Cubic bezier: control points offset vertically
+  return `M${x1},${y1} C${x1},${y1+cp} ${x2},${y2-cp} ${x2},${y2}`;
+}
+
+// After diagram renders, upgrade straight edges to bezier
+function upgradeDiagramEdges() {
+  document.querySelectorAll('#gL line, #gL polyline, #gL path.edge').forEach(el => {
+    if (el.tagName === 'line') {
+      const x1 = parseFloat(el.getAttribute('x1')||0);
+      const y1 = parseFloat(el.getAttribute('y1')||0);
+      const x2 = parseFloat(el.getAttribute('x2')||0);
+      const y2 = parseFloat(el.getAttribute('y2')||0);
+      const path = document.createElementNS('http://www.w3.org/2000/svg','path');
+      path.setAttribute('d', makeBezierPath(x1,y1,x2,y2,0));
+      path.setAttribute('stroke', el.getAttribute('stroke')||'rgba(255,255,255,.12)');
+      path.setAttribute('stroke-width', el.getAttribute('stroke-width')||'1');
+      path.setAttribute('fill', 'none');
+      path.setAttribute('class', 'edge-path');
+      path.style.opacity = el.style.opacity || '0.6';
+      // Copy marker
+      const marker = el.getAttribute('marker-end');
+      if (marker) path.setAttribute('marker-end', marker);
+      el.parentNode?.replaceChild(path, el);
+    }
+  });
+}
+
+/* ── ③ GRADIENT NODES in SVG defs ────────────────────────────────── */
+function addDiagramGradients(svgEl) {
+  if (!svgEl || svgEl.querySelector('#grad-fn')) return;
+  const defs = svgEl.querySelector('defs') || svgEl.insertBefore(
+    document.createElementNS('http://www.w3.org/2000/svg','defs'),
+    svgEl.firstChild
+  );
+  const grads = [
+    ['grad-fn',  '#1c2a1c', '#162016'],  // function: subtle green
+    ['grad-cls', '#1c1c2a', '#141420'],  // class: subtle blue
+    ['grad-imp', '#2a1c1c', '#201414'],  // import: subtle red
+    ['grad-ctx', '#1c211c', '#141814'],  // context: subtle teal
+  ];
+  grads.forEach(([id, c1, c2]) => {
+    const g = document.createElementNS('http://www.w3.org/2000/svg','linearGradient');
+    g.setAttribute('id', id); g.setAttribute('x1','0'); g.setAttribute('y1','0');
+    g.setAttribute('x2','0'); g.setAttribute('y2','1');
+    g.innerHTML = `<stop offset="0" stop-color="${c1}"/><stop offset="1" stop-color="${c2}"/>`;
+    defs.appendChild(g);
+  });
+}
+
+/* ── ④ SKELETON LOADER for file tree ────────────────────────────── */
+function showFileSkeleton() {
+  const ft = document.getElementById('ft');
+  if (!ft) return;
+  ft.innerHTML = Array.from({length: 8}, (_, i) =>
+    `<div style="display:flex;align-items:center;gap:8px;padding:5px 12px;padding-left:${12 + (i%3)*16}px">
+      <div class="skeleton" style="width:14px;height:14px;border-radius:3px;flex-shrink:0"></div>
+      <div class="skeleton" style="width:${[80,110,90,130,70,100,85,120][i]}px;height:12px"></div>
+    </div>`
+  ).join('');
+}
+
+// Hook into loadFileTree
+const _origLoadFT = loadFileTree;
+async function loadFileTree(dir) {
+  showFileSkeleton();
+  await _origLoadFT(dir);
+}
+
+/* ── ⑤ TOAST UPGRADE — icon + progress bar ──────────────────────── */
+const TOAST_ICONS = { ok: '✅', err: '❌', info: '💡', warn: '⚠️' };
+
+const _origShowToastPolish = showToast;
+function showToast(msg, type, dur) {
+  const icon = TOAST_ICONS[type] || '';
+  const finalMsg = icon ? `${icon} ${msg}` : msg;
+  const finalDur = dur || (type === 'err' ? 4000 : type === 'ok' ? 2000 : 2500);
+  // Set CSS variable for progress bar duration
+  document.documentElement.style.setProperty('--toast-dur', (finalDur/1000) + 's');
+  _origShowToastPolish(finalMsg, type, finalDur);
+}
+
+/* ── ⑥ THEME SWITCHER — cycle including new themes ──────────────── */
+const _THEME_CYCLE = ['dark','claude','catppuccin','tokyonight','nord','steam','switch2'];
+const _origCycleTheme = cycleTheme;
+function cycleTheme() {
+  const cur = localStorage.getItem('pyf_theme') || 'dark';
+  const idx = _THEME_CYCLE.indexOf(cur);
+  const next = _THEME_CYCLE[(idx + 1) % _THEME_CYCLE.length];
+  setTheme(next);
+  showToast('主題：' + { dark:'Dark',claude:'Claude',catppuccin:'Catppuccin',tokyonight:'Tokyo Night',nord:'Nord',steam:'Steam',switch2:'Switch2' }[next], 'info', 1200);
+}
+
+/* ── SETTINGS: theme picker showing all 7 ────────────────────────── */
+function renderThemePicker() {
+  const el = document.getElementById('themeGrid');
+  if (!el) return;
+  const themes = [
+    { id:'dark',        name:'Dark',         color:'#0a0a0a' },
+    { id:'claude',      name:'Claude',        color:'#1a1208' },
+    { id:'catppuccin',  name:'Catppuccin',    color:'#1e1e2e' },
+    { id:'tokyonight',  name:'Tokyo Night',   color:'#1a1b26' },
+    { id:'nord',        name:'Nord',          color:'#2e3440' },
+    { id:'steam',       name:'Steam',         color:'#171a21' },
+    { id:'switch2',     name:'Switch2',       color:'#0d0d0d' },
+  ];
+  const cur = localStorage.getItem('pyf_theme') || 'dark';
+  el.innerHTML = themes.map(t => `
+    <div onclick="setTheme('${t.id}')"
+         style="background:${t.color};border:2px solid ${cur===t.id?'var(--acc)':'var(--bd2)'};
+                border-radius:var(--rm);padding:10px 14px;cursor:pointer;
+                transition:border-color .15s,transform .1s;display:flex;align-items:center;gap:8px"
+         onmouseenter="this.style.transform='scale(1.03)'"
+         onmouseleave="this.style.transform=''">
+      <span style="font-size:11.5px;font-weight:600;color:${cur===t.id?'var(--acc3)':'#888'}">${t.name}</span>
+      ${cur===t.id ? '<span style="color:var(--acc3);font-size:11px;margin-left:auto">✓</span>' : ''}
+    </div>`).join('');
+}
+
+/* ── Wire: Monaco ready → register themes + upgrade diagram ──────── */
+const _origMonacaReadyPolish = _setupViewModeSync;
+function _setupViewModeSync() {
+  _origMonacaReadyPolish();
+  registerExtraThemes();
+  registerClaudeTheme();
+}
+
+// After each doAnalyze: upgrade edges + add gradients
+const _origDoAnalyzePolish = doAnalyze;
+async function doAnalyze() {
+  await _origDoAnalyzePolish();
+  setTimeout(() => {
+    const svgL = document.querySelector('#gL svg');
+    const svgD = document.querySelector('#gD svg');
+    if (svgL) { addDiagramGradients(svgL); upgradeDiagramEdges(); }
+    if (svgD) addDiagramGradients(svgD);
+  }, 100);
+}
+
+// After settings panel opens, render theme picker
+const _origShowSettings = openSettings;
+if (typeof openSettings !== 'undefined') {
+  function openSettings() {
+    _origShowSettings?.();
+    setTimeout(renderThemePicker, 50);
+  }
+}
+
+// Add theme grid to settings (runtime injection)
+window.addEventListener('load', () => {
+  setTimeout(() => {
+    const settBody = document.getElementById('settBody') || document.querySelector('.sett-body');
+    if (settBody && !document.getElementById('themeGrid')) {
+      const sec = document.createElement('div');
+      sec.innerHTML = `
+        <div class="sett-sec" style="margin-top:16px">🎨 主題</div>
+        <div id="themeGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:7px;padding:0 4px"></div>
+      `;
+      settBody.insertBefore(sec, settBody.firstChild);
+      renderThemePicker();
+    }
+  }, 500);
+}, { once: true });
+
+// Commands
+_COMMANDS.push(
+  { label: 'Catppuccin 主題',  icon: '🌸', cmd: () => setTheme('catppuccin') },
+  { label: 'Tokyo Night 主題', icon: '🌃', cmd: () => setTheme('tokyonight') },
+  { label: 'Nord 主題',        icon: '❄️', cmd: () => setTheme('nord') },
+);
+
+/* ════════════════════════════════════════════════════════════════
+ *  PERFORMANCE OPTIMIZATIONS
+ *  ① 自適應 debounce（依檔案大小動態調整）
+ *  ② RAF 批次 SVG 更新
+ *  ③ 分析結果快取（前端側）
+ *  ④ 懶載入圖示
+ *  ⑤ Git invalidate on commit/save
+ *  ⑥ 效能監控面板
+ * ════════════════════════════════════════════════════════════════ */
+
+/* ── ① 自適應 debounce ──────────────────────────────────────────── */
+function getAdaptiveDebounce() {
+  if (!monacoEd) return 300;
+  const model = monacoEd.getModel();
+  if (!model) return 300;
+  const lines = model.getLineCount();
+  if (lines < 80)   return 120;   // 小檔案：超快
+  if (lines < 300)  return 220;   // 中小：快
+  if (lines < 1000) return 350;   // 中大：正常
+  if (lines < 3000) return 500;   // 大：慢
+  return 700;                      // 超大：很慢
+}
+
+// Patch the existing analysis debounce
+let _adaptiveTimer = null;
+const _origDoAnalyzePerf = doAnalyze;
+
+function _scheduleAnalyze() {
+  clearTimeout(_adaptiveTimer);
+  const delay = getAdaptiveDebounce();
+  _adaptiveTimer = setTimeout(() => _origDoAnalyzePerf(), delay);
+}
+
+// Override Monaco change handler to use adaptive debounce
+const _origPatchCursorSyncPerf = _patchCursorSync;
+function _patchCursorSync() {
+  if (!monacoEd || !window.monaco) return;
+  monacoEd.onDidChangeCursorPosition(e => {
+    const p = e.position;
+    document.getElementById('sbl') && (document.getElementById('sbl').textContent = `行 ${p.lineNumber}, 欄 ${p.column}`);
+    updateCurrentFn(p.lineNumber);
+    updateStatusBarMeta();
+    clearTimeout(_syncTimer);
+    _syncTimer = setTimeout(() => syncCursorToNode(p.lineNumber), 150);
+    updateDeepBreadcrumb();
+  });
+  const badge = document.getElementById('mcBadge');
+  if (badge) {
+    monacoEd.onDidChangeCursorSelection(ev => {
+      const ss = monacoEd.getSelections() || [];
+      badge.textContent = ss.length > 1 ? ss.length + ' 個游標' : '';
+      badge.classList.toggle('show', ss.length > 1);
+    });
+  }
+}
+
+// Override content change to use adaptive debounce
+monacoEd?.onDidChangeModelContent?.(() => _scheduleAnalyze());
+window.addEventListener('load', () => {
+  setTimeout(() => {
+    if (monacoEd) {
+      monacoEd.onDidChangeModelContent(() => _scheduleAnalyze());
+    }
+  }, 1000);
+}, { once: true });
+
+/* ── ② RAF 批次 SVG 更新 ─────────────────────────────────────────── */
+let _pendingSVGUpdates = [];
+let _rafScheduled = false;
+
+function batchSVGUpdate(fn) {
+  _pendingSVGUpdates.push(fn);
+  if (!_rafScheduled) {
+    _rafScheduled = true;
+    requestAnimationFrame(() => {
+      _rafScheduled = false;
+      const updates = _pendingSVGUpdates.splice(0);
+      updates.forEach(f => f());
+    });
+  }
+}
+
+/* ── ③ 前端解析快取 ─────────────────────────────────────────────── */
+const _frontParseCache = new Map();   // path → {hash, result}
+
+function _contentHash(str) {
+  // djb2 hash (fast, not cryptographic)
+  let h = 5381;
+  for (let i = 0; i < str.length; i++) h = ((h << 5) + h) ^ str.charCodeAt(i);
+  return (h >>> 0).toString(36);
+}
+
+// Patch doAnalyze to check front-end cache before API call
+const _origDoAnalyzePerfFE = doAnalyze;
+async function doAnalyze() {
+  if (!activeTab || !monacoEd) return;
+  const code = monacoEd.getValue();
+  const key  = activeTab + ':' + _contentHash(code);
+
+  // If exact same content was analyzed, skip re-render
+  if (_frontParseCache.has(key) && _lastGraph) {
+    // Still update cursor sync etc but skip API call
+    const perfEl = document.getElementById('perfBar');
+    if (perfEl) perfEl.textContent = '⚡ 快取';
+    return;
+  }
+
+  const t0 = performance.now();
+  await _origDoAnalyzePerfFE();
+  const ms = Math.round(performance.now() - t0);
+
+  if (_lastGraph) {
+    _frontParseCache.set(key, true);
+    // Limit cache size
+    if (_frontParseCache.size > 50) {
+      const firstKey = _frontParseCache.keys().next().value;
+      _frontParseCache.delete(firstKey);
+    }
+  }
+
+  // Show parse time in status bar
+  const perfEl = document.getElementById('perfBar');
+  if (perfEl) perfEl.textContent = `${ms}ms`;
+}
+
+/* ── ④ Git cache invalidation on write ──────────────────────────── */
+const _origSaveFilePerf = saveFile;
+async function saveFile() {
+  await _origSaveFilePerf();
+  // Invalidate git cache for this directory
+  if (openDir) {
+    fetch(API + '/api/git/cache-clear', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ dir: openDir })
+    }).catch(() => {});
+  }
+}
+
+/* ── ⑤ Performance indicator in status bar ───────────────────────── */
+function initPerfBar() {
+  const sbl = document.getElementById('sbl');
+  if (!sbl || document.getElementById('perfBar')) return;
+  const bar = document.createElement('div');
+  bar.id = 'perfBar';
+  bar.style.cssText = 'font:11px var(--mono);color:var(--tx4);padding:0 8px;font-weight:450;min-width:40px';
+  bar.title = '最後解析耗時';
+  sbl.parentNode?.insertBefore(bar, sbl.nextSibling);
+}
+
+/* ── ⑥ Memory cleanup ───────────────────────────────────────────── */
+// Clean up old caches every 5 minutes
+setInterval(() => {
+  // Front-end parse cache
+  if (_frontParseCache.size > 30) {
+    const keys = [..._frontParseCache.keys()].slice(0, 10);
+    keys.forEach(k => _frontParseCache.delete(k));
+  }
+  // Worker cleanup hint
+  if (_cgWorker && Object.keys(_cgPos).length > 500) {
+    Object.keys(_cgPos).slice(0, 200).forEach(k => delete _cgPos[k]);
+  }
+}, 5 * 60 * 1000);
+
+/* ── Wire ────────────────────────────────────────────────────────── */
+window.addEventListener('load', () => {
+  setTimeout(initPerfBar, 800);
+}, { once: true });
+
+_COMMANDS.push(
+  { label: '清除解析快取', icon: '🗑', cmd: () => { _frontParseCache.clear(); showToast('快取已清除', 'ok', 1500); } },
+  { label: '顯示效能資訊', icon: '📊', cmd: () => {
+    const msg = [
+      `前端快取：${_frontParseCache.size} 個項目`,
+      `目前 debounce：${getAdaptiveDebounce()}ms`,
+      `呼叫圖位置：${Object.keys(_cgPos||{}).length} 個節點`,
+    ].join('\n');
+    alert(msg);
+  }},
+);
+
+/* ════════════════════════════════════════════════════════════════
+ *  CLAUDE SYNTAX HIGHLIGHT THEME
+ *  完整複製 Claude.ai 的 code block 顏色系統
+ * ════════════════════════════════════════════════════════════════ */
+
+const _claudeMonacoThemeV2 = {
+  base: 'vs-dark',
+  inherit: false,
+  rules: [
+    // ── Base ─────────────────────────────────────────────────────
+    { token: '',              foreground: 'e8e3dc', background: '0f0d0b' },
+
+    // ── Comments ─────────────────────────────────────────────────
+    { token: 'comment',       foreground: '5c5650', fontStyle: 'italic' },
+    { token: 'comment.doc',   foreground: '6b6560', fontStyle: 'italic' },
+
+    // ── Keywords ─────────────────────────────────────────────────
+    { token: 'keyword',       foreground: 'c8916a', fontStyle: 'bold' }, // Claude warm orange
+    { token: 'keyword.control',foreground: 'c8916a', fontStyle: 'bold' },
+    { token: 'keyword.operator',foreground: 'c8916a' },
+    { token: 'storage',       foreground: 'c8916a', fontStyle: 'bold' },
+    { token: 'storage.type',  foreground: 'c8916a', fontStyle: 'bold' },
+
+    // ── Strings ──────────────────────────────────────────────────
+    { token: 'string',        foreground: '8fb87a' }, // Claude muted green
+    { token: 'string.escape', foreground: 'c8916a' },
+    { token: 'string.template',foreground: '8fb87a' },
+    { token: 'string.regexp', foreground: 'b8a86a' },
+
+    // ── Numbers ──────────────────────────────────────────────────
+    { token: 'number',        foreground: 'b8906a' }, // warm amber
+    { token: 'number.hex',    foreground: 'b8906a' },
+    { token: 'number.float',  foreground: 'b8906a' },
+
+    // ── Functions ────────────────────────────────────────────────
+    { token: 'entity.name.function', foreground: '85afd4' }, // Claude blue-grey
+    { token: 'support.function',     foreground: '85afd4' },
+    { token: 'meta.function-call',   foreground: '85afd4' },
+
+    // ── Types & Classes ───────────────────────────────────────────
+    { token: 'entity.name.type',     foreground: '9bb8cc' }, // lighter blue
+    { token: 'entity.name.class',    foreground: '9bb8cc', fontStyle: 'bold' },
+    { token: 'support.type',         foreground: '9bb8cc' },
+    { token: 'support.class',        foreground: '9bb8cc' },
+    { token: 'type',                 foreground: '9bb8cc' },
+
+    // ── Variables ────────────────────────────────────────────────
+    { token: 'variable',             foreground: 'e8e3dc' },
+    { token: 'variable.other',       foreground: 'd4cfc8' },
+    { token: 'variable.parameter',   foreground: 'c8b89a' }, // warm
+    { token: 'variable.language',    foreground: 'c8916a', fontStyle: 'italic' }, // this/self
+
+    // ── Constants ─────────────────────────────────────────────────
+    { token: 'constant',             foreground: 'b8a86a' },
+    { token: 'constant.language',    foreground: 'c8916a', fontStyle: 'bold' }, // true/false/nil
+    { token: 'constant.numeric',     foreground: 'b8906a' },
+
+    // ── Operators ────────────────────────────────────────────────
+    { token: 'operator',             foreground: 'c0bab2' },
+    { token: 'delimiter',            foreground: '6b6560' },
+    { token: 'delimiter.bracket',    foreground: '8a8480' },
+    { token: 'delimiter.parenthesis',foreground: '8a8480' },
+
+    // ── Tags (HTML/JSX) ───────────────────────────────────────────
+    { token: 'tag',                  foreground: 'c8916a' },
+    { token: 'tag.id',               foreground: '85afd4' },
+    { token: 'tag.class',            foreground: '9bb8cc' },
+    { token: 'attribute.name',       foreground: 'c8b89a' },
+    { token: 'attribute.value',      foreground: '8fb87a' },
+
+    // ── Decorators ───────────────────────────────────────────────
+    { token: 'annotation',           foreground: 'b87a7a' },
+
+    // ── Python specific ───────────────────────────────────────────
+    { token: 'keyword.python',       foreground: 'c8916a', fontStyle: 'bold' },
+    { token: 'builtin.python',       foreground: '85afd4' },
+
+    // ── Go specific ───────────────────────────────────────────────
+    { token: 'keyword.go',           foreground: 'c8916a', fontStyle: 'bold' },
+
+    // ── Rust specific ─────────────────────────────────────────────
+    { token: 'keyword.rust',         foreground: 'c8916a', fontStyle: 'bold' },
+    { token: 'lifetime',             foreground: 'b87a7a', fontStyle: 'italic' },
+
+    // ── Markdown ─────────────────────────────────────────────────
+    { token: 'markup.bold',          foreground: 'e8e3dc', fontStyle: 'bold' },
+    { token: 'markup.italic',        foreground: 'd4cfc8', fontStyle: 'italic' },
+    { token: 'markup.heading',       foreground: 'c8916a', fontStyle: 'bold' },
+    { token: 'markup.quote',         foreground: '6b6560', fontStyle: 'italic' },
+    { token: 'markup.underline.link',foreground: '85afd4' },
+  ],
+  colors: {
+    // ── Editor ───────────────────────────────────────────────────
+    'editor.background':                '#0f0d0b',
+    'editor.foreground':                '#e8e3dc',
+    'editor.lineHighlightBackground':   '#16140f',
+    'editor.selectionBackground':       '#D9770630',
+    'editor.selectionHighlightBackground':'#D9770618',
+    'editor.inactiveSelectionBackground':'#D9770618',
+    'editor.findMatchBackground':       '#D9770640',
+    'editor.findMatchHighlightBackground':'#D9770620',
+    'editor.wordHighlightBackground':   '#D9770615',
+    'editor.wordHighlightStrongBackground':'#D9770625',
+
+    // ── Editor Widgets ─────────────────────────────────────────
+    'editorWidget.background':          '#141210',
+    'editorWidget.border':              '#2a2720',
+    'editorHoverWidget.background':     '#141210',
+    'editorHoverWidget.border':         '#2a2720',
+    'editorSuggestWidget.background':   '#141210',
+    'editorSuggestWidget.border':       '#2a2720',
+    'editorSuggestWidget.selectedBackground':'#D9770622',
+    'editorSuggestWidget.highlightForeground':'#D97706',
+
+    // ── Line Numbers ──────────────────────────────────────────
+    'editorLineNumber.foreground':      '#3a362c',
+    'editorLineNumber.activeForeground':'#6b6560',
+
+    // ── Cursor ────────────────────────────────────────────────
+    'editorCursor.foreground':          '#D97706',
+    'editorCursor.background':          '#0f0d0b',
+
+    // ── Indent Guides ─────────────────────────────────────────
+    'editorIndentGuide.background1':    '#1e1c18',
+    'editorIndentGuide.activeBackground1':'#3a362c',
+
+    // ── Brackets ──────────────────────────────────────────────
+    'editorBracketMatch.background':    '#D9770618',
+    'editorBracketMatch.border':        '#D97706',
+    'editorBracketHighlight.foreground1':'#D97706',
+    'editorBracketHighlight.foreground2':'#85afd4',
+    'editorBracketHighlight.foreground3':'#8fb87a',
+
+    // ── Scrollbar ─────────────────────────────────────────────
+    'scrollbar.shadow':                 '#00000000',
+    'scrollbarSlider.background':       '#2a272060',
+    'scrollbarSlider.hoverBackground':  '#3a362c90',
+    'scrollbarSlider.activeBackground': '#D9770640',
+
+    // ── Minimap ───────────────────────────────────────────────
+    'minimap.background':               '#0a0908',
+    'minimap.selectionHighlight':       '#D9770640',
+    'minimapSlider.background':         '#2a272040',
+
+    // ── Gutter ────────────────────────────────────────────────
+    'editorGutter.background':          '#0f0d0b',
+    'editorGutter.addedBackground':     '#8fb87a80',
+    'editorGutter.deletedBackground':   '#b87a7a80',
+    'editorGutter.modifiedBackground':  '#D9770680',
+
+    // ── Errors & Warnings ─────────────────────────────────────
+    'editorError.foreground':           '#b87a7a',
+    'editorWarning.foreground':         '#b8906a',
+    'editorInfo.foreground':            '#85afd4',
+
+    // ── Overview ruler ────────────────────────────────────────
+    'editorOverviewRuler.border':       '#1e1c18',
+    'editorOverviewRuler.errorForeground':'#b87a7a',
+    'editorOverviewRuler.warningForeground':'#b8906a',
+    'editorOverviewRuler.findMatchForeground':'#D97706',
+
+    // ── Input ─────────────────────────────────────────────────
+    'input.background':                 '#141210',
+    'input.border':                     '#2a2720',
+    'input.foreground':                 '#e8e3dc',
+    'input.placeholderForeground':      '#3a362c',
+    'inputValidation.errorBackground':  '#b87a7a20',
+    'inputValidation.errorBorder':      '#b87a7a',
+
+    // ── Diff Editor ───────────────────────────────────────────
+    'diffEditor.insertedTextBackground':'#8fb87a15',
+    'diffEditor.removedTextBackground': '#b87a7a15',
+    'diffEditor.insertedLineBackground':'#8fb87a0a',
+    'diffEditor.removedLineBackground': '#b87a7a0a',
+
+    // ── Peek View ─────────────────────────────────────────────
+    'peekView.border':                  '#D97706',
+    'peekViewEditor.background':        '#0f0d0b',
+    'peekViewEditor.matchHighlightBackground':'#D9770625',
+    'peekViewResult.background':        '#141210',
+    'peekViewTitle.background':         '#1a1814',
+    'peekViewTitleDescription.foreground':'#6b6560',
+    'peekViewTitleLabel.foreground':    '#e8e3dc',
+
+    // ── Sticky Scroll ─────────────────────────────────────────
+    'editorStickyScroll.background':    '#0f0d0b',
+    'editorStickyScrollHover.background':'#16140f',
+  }
+};
+
+// Register Claude theme when Monaco is ready
+function registerClaudeTheme() {
+  if (!window.monaco) return;
+  try {
+    monaco.editor.defineTheme('claude', typeof _claudeMonacoThemeV2 !== 'undefined' ? _claudeMonacoThemeV2 : _claudeMonacoTheme);
+    // If current theme is claude, apply immediately
+    const cur = localStorage.getItem('pyf_theme') || 'dark';
+    if (cur === 'claude' && monacoEd) {
+      monaco.editor.setTheme('claude');
+    }
+  } catch(e) {}
+}
+
+// Also set Monaco font to match Claude
+function applyClaudeFont() {
+  if (!monacoEd) return;
+  monacoEd.updateOptions({
+    fontFamily: "'SFMono-Regular', 'SF Mono', 'Cascadia Code', 'Fira Code', 'JetBrains Mono', Consolas, monospace",
+    fontSize: 13.5,
+    lineHeight: 21,
+    letterSpacing: 0.2,
+    fontLigatures: true,
+    smoothScrolling: true,
+    cursorSmoothCaretAnimation: 'on',
+    cursorBlinking: 'smooth',
+    // Claude-style padding
+    padding: { top: 12, bottom: 12 },
+  });
+}
+
+/* ── Claude.ai 風格的 code block in AI 面板 ──────────────────── */
+function styleClaudeCodeBlocks() {
+  // 當 AI 面板有 code block 時，套用 Claude 風格
+  document.querySelectorAll('.ai-msg pre code').forEach(el => {
+    el.style.fontFamily = "var(--mono)";
+    el.style.fontSize   = "13px";
+    el.style.lineHeight = "1.6";
+  });
+}
+
+// Observe AI panel changes
+const _codeBlockObserver = new MutationObserver(() => {
+  styleClaudeCodeBlocks();
+});
+
+window.addEventListener('load', () => {
+  const aiPanel = document.getElementById('p-ai');
+  if (aiPanel) {
+    _codeBlockObserver.observe(aiPanel, { childList: true, subtree: true });
+  }
+  // Auto-apply if claude theme is selected
+  setTimeout(() => {
+    registerClaudeTheme();
+    const cur = localStorage.getItem('pyf_theme') || 'dark';
+    if (cur === 'claude') {
+      applyClaudeFont();
+    }
+  }, 500);
+}, { once: true });
+
+// Patch setTheme to apply Claude font
+const _origSetThemeClaude = setTheme;
+function setTheme(t) {
+  _origSetThemeClaude(t);
+  if (t === 'claude') {
+    setTimeout(applyClaudeFont, 50);
+  }
+}
+
+// Commands
+_COMMANDS.push(
+  { label: 'Claude 主題（精確版）', icon: '⬡', cmd: () => {
+    setTheme('claude');
+    showToast('Claude 主題已啟用', 'ok', 1500);
+  }},
+);
+
+/* ════════════════════════════════════════════════════════════════
+ *  ChatGPT / Multi-Model AI 整合
+ *  支援：Claude Sonnet 4.6、GPT-4o、GPT-4o Mini
+ * ════════════════════════════════════════════════════════════════ */
+
+let _aiModel    = localStorage.getItem('pyf_ai_model') || 'claude-sonnet-4-6';
+let _aiProvider = _aiModel.startsWith('gpt') ? 'openai' : 'anthropic';
+let _openaiKey  = localStorage.getItem('pyf_openai_key') || '';
+let _aiModels   = [];
+
+/* ── Load available models ────────────────────────────────────── */
+async function loadAIModels() {
+  try {
+    const r = await fetch(API + '/api/ai/models').then(r => r.json());
+    _aiModels = r.models || [];
+    renderModelSelector();
+    return r;
+  } catch {}
+}
+
+/* ── Model selector UI ────────────────────────────────────────── */
+function renderModelSelector() {
+  const el = document.getElementById('aiModelSel');
+  if (!el) return;
+  el.innerHTML = _aiModels.map(m => `
+    <option value="${m.id}" ${m.id === _aiModel ? 'selected' : ''}
+            ${!m.available ? 'disabled' : ''}>
+      ${m.icon} ${m.name} ${!m.available ? '(未設定 Key)' : ''}
+    </option>
+  `).join('');
+}
+
+function onAIModelChange(select) {
+  const model = select.value;
+  _aiModel    = model;
+  _aiProvider = model.startsWith('gpt') ? 'openai' : 'anthropic';
+  localStorage.setItem('pyf_ai_model', model);
+
+  // Show/hide OpenAI key input
+  const oaiKey = document.getElementById('aiOpenAIKeyRow');
+  if (oaiKey) oaiKey.style.display = _aiProvider === 'openai' ? 'flex' : 'none';
+
+  const badge = document.getElementById('aiModelBadge');
+  if (badge) {
+    const m = _aiModels.find(x => x.id === model);
+    badge.textContent = m ? `${m.icon} ${m.name}` : model;
+    badge.style.color = _aiProvider === 'openai' ? '#10a37f' : 'var(--acc3)';
+  }
+  showToast(`已切換到 ${model}`, 'info', 1500);
+}
+
+/* ── Override sendAIMessage to route to correct provider ──────── */
+const _origSendAIMsg = sendAIMessage;
+async function sendAIMessage(content, isQuick) {
+  if (_aiProvider === 'anthropic') {
+    return _origSendAIMsg(content, isQuick);
+  }
+  // OpenAI path
+  return sendOpenAIMessage(content, isQuick);
+}
+
+async function sendOpenAIMessage(content, isQuick) {
+  const key = _openaiKey || localStorage.getItem('pyf_openai_key') || '';
+  if (!key) {
+    appendAIMsg('assistant', '❌ 請先設定 OpenAI API Key（設定精靈 ⚙ → AI 助手）');
+    return;
+  }
+
+  const context = buildAIContext();
+  const msgs = [
+    { role: 'system', content: context },
+    ...(_aiHistory || []).slice(-10).map(m => ({ role: m.role, content: m.content })),
+    { role: 'user', content },
+  ];
+
+  // Build request body
+  const reqBody = {
+    messages: msgs,
+    model:    _aiModel,
+    key,
+  };
+
+  appendAIMsg('user', content);
+  const assistDiv = appendAIMsg('assistant', '');
+  let text = '';
+
+  try {
+    const resp = await fetch(API + '/api/ai/chat-openai', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify(reqBody),
+    });
+
+    const reader = resp.body.getReader();
+    const dec    = new TextDecoder();
+    let buf      = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += dec.decode(value, { stream: true });
+      const lines = buf.split('\n');
+      buf = lines.pop() || '';
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        try {
+          const d = JSON.parse(line.slice(6));
+          if (d.type === 'text') {
+            text += d.text;
+            assistDiv.innerHTML = renderAIMarkdown(text);
+            assistDiv.scrollIntoView({ block: 'end', behavior: 'smooth' });
+          } else if (d.type === 'error') {
+            assistDiv.innerHTML = `<span style="color:#f87171">❌ ${esc(d.error)}</span>`;
+          }
+        } catch {}
+      }
+    }
+    if (_aiHistory) _aiHistory.push({ role: 'assistant', content: text });
+  } catch(e) {
+    assistDiv.innerHTML = `<span style="color:#f87171">❌ 網路錯誤：${esc(String(e))}</span>`;
+  }
+}
+
+/* ── OpenAI Key setup ──────────────────────────────────────────── */
+async function saveOpenAIKey() {
+  const inp = document.getElementById('aiOpenAIKey');
+  if (!inp) return;
+  const key = inp.value.trim();
+  if (!key || key.startsWith('•')) { showToast('請輸入有效的 API Key', 'err'); return; }
+  _openaiKey = key;
+  localStorage.setItem('pyf_openai_key', key);
+  const r = await apiPost(API + '/api/settings/set-openai-key', { key });
+  if (r?.ok) {
+    showToast('OpenAI API Key 已儲存 ✓', 'ok', 2000);
+    inp.value = '••••••••••••••••';
+    await loadAIModels();
+  } else {
+    showToast('儲存失敗', 'err');
+  }
+}
+
+/* ── Patch setup wizard to include OpenAI key ─────────────────── */
+const _origRenderSetup = renderSetup;
+function renderSetup(s) {
+  _origRenderSetup(s);
+  // Add OpenAI section after API key
+  const body = document.getElementById('setupBody');
+  if (!body) return;
+  const existing = body.querySelector('[data-section="openai"]');
+  if (existing) return;
+
+  const sec = document.createElement('div');
+  sec.setAttribute('data-section', 'openai');
+  sec.innerHTML = `
+    <div class="setup-section">OpenAI API Key（GPT-4o）</div>
+    <div class="apikey-row">
+      <input class="apikey-inp" id="setupOpenAIKey" type="password"
+             placeholder="sk-proj-…" value="${_openaiKey ? '••••••••••••••••' : ''}">
+      <a class="apikey-link" href="https://platform.openai.com/api-keys" target="_blank">取得 Key →</a>
+      <button class="apikey-save-btn" onclick="saveOpenAIKey_setup()">儲存</button>
+    </div>
+    <div style="font-size:11px;color:var(--tx4);margin-top:4px">
+      儲存在 <code style="background:var(--bg4);padding:1px 5px;border-radius:3px">~/.pyflow/settings.json</code>
+    </div>
+  `;
+  body.insertBefore(sec, body.querySelector('[style*="justify-content:flex-end"]'));
+}
+
+window.saveOpenAIKey_setup = async function() {
+  const inp = document.getElementById('setupOpenAIKey');
+  if (!inp) return;
+  const key = inp.value.trim();
+  if (!key || key.startsWith('•')) { showToast('請輸入有效的 Key', 'err'); return; }
+  _openaiKey = key;
+  localStorage.setItem('pyf_openai_key', key);
+  const r = await apiPost(API + '/api/settings/set-openai-key', { key });
+  if (r?.ok) {
+    showToast('OpenAI Key 已儲存 ✓', 'ok');
+    inp.value = '••••••••••••••••';
+    await loadAIModels();
+    if (_setupStatus) { _setupStatus = null; loadSetupStatus(true); }
+  }
+};
+
+/* ── Load OpenAI key from settings on startup ──────────────────── */
+const _origLoadPersistedSettingsGPT = loadPersistedSettings;
+async function loadPersistedSettings() {
+  await _origLoadPersistedSettingsGPT();
+  const s = await fetch(API + '/api/settings/load').then(r => r.json()).catch(() => ({}));
+  if (s.openai_api_key && !_openaiKey) {
+    _openaiKey = s.openai_api_key;
+    localStorage.setItem('pyf_openai_key', s.openai_api_key);
+  }
+  _openaiKey = _openaiKey || localStorage.getItem('pyf_openai_key') || '';
+  await loadAIModels();
+}
+
+/* ── Commands ──────────────────────────────────────────────────── */
+_COMMANDS.push(
+  { label: '切換到 Claude Sonnet 4.6', icon: '⬡', cmd: () => {
+    _aiModel = 'claude-sonnet-4-6'; _aiProvider = 'anthropic';
+    localStorage.setItem('pyf_ai_model', _aiModel);
+    showToast('AI: Claude Sonnet 4.6', 'ok', 1500);
+  }},
+  { label: '切換到 GPT-4o',            icon: '✦', cmd: () => {
+    _aiModel = 'gpt-4o'; _aiProvider = 'openai';
+    localStorage.setItem('pyf_ai_model', _aiModel);
+    showToast('AI: GPT-4o', 'ok', 1500);
+  }},
+  { label: '切換到 GPT-4o Mini',       icon: '✧', cmd: () => {
+    _aiModel = 'gpt-4o-mini'; _aiProvider = 'openai';
+    localStorage.setItem('pyf_ai_model', _aiModel);
+    showToast('AI: GPT-4o Mini', 'ok', 1500);
+  }},
+);
+
+/* ════════════════════════════════════════════════════════════════
+ *  AI AGENT SYSTEM
+ *  ① 本地 AI 偵測（LM Studio / Ollama / GPT4All）
+ *  ② 任務佇列（add / run / delete / clear）
+ *  ③ 自動連續執行（run until done）
+ *  ④ SSE 串流結果
+ *  ⑤ 點一點的 UI
+ * ════════════════════════════════════════════════════════════════ */
+
+let _agentRunning   = false;
+let _agentProvider  = 'anthropic';
+let _agentModel     = 'claude-sonnet-4-6';
+let _agentLocalUrl  = '';
+let _agentLocalName = '';
+let _agentTasks     = [];       // local cache
+let _agentAbort     = null;     // AbortController for current task
+
+/* ── ① Local AI detection ───────────────────────────────────── */
+async function agentDetectLocal() {
+  const badge = document.getElementById('localAIBadge');
+  const opt   = document.getElementById('agentLocalOpt');
+  if (badge) { badge.textContent = '🖥 偵測中…'; badge.className = 'local-ai-badge off'; }
+  try {
+    const r = await fetch(API + '/api/local-ai/status').then(r => r.json());
+    if (r.available) {
+      _agentLocalUrl  = r.base_url;
+      _agentLocalName = r.server;
+      if (badge) {
+        badge.textContent = `🖥 ${r.server} ✓`;
+        badge.className = 'local-ai-badge on';
+        badge.title = `${r.server} at ${r.base_url}\n模型：${(r.models||[]).slice(0,3).join(', ')}`;
+      }
+      if (opt) {
+        opt.disabled = false;
+        opt.textContent = `🖥 ${r.server}（${(r.models||[]).length} 個模型）`;
+        // Add individual model options
+        const sel = document.getElementById('agentModelSel');
+        if (sel) {
+          // Remove old local options
+          [...sel.options].filter(o => o.value.startsWith('local:')).forEach(o => o.remove());
+          (r.models || []).slice(0, 10).forEach(m => {
+            const o = document.createElement('option');
+            o.value = 'local:' + m;
+            o.textContent = `🖥 ${m}`;
+            sel.appendChild(o);
+          });
+        }
+      }
+      showToast(`偵測到 ${r.server}（${(r.models||[]).length} 個模型）`, 'ok', 3000);
+    } else {
+      if (badge) { badge.textContent = '🖥 Local AI: 未偵測到'; badge.className = 'local-ai-badge off'; }
+      if (opt)   { opt.disabled = true; opt.textContent = '🖥 本地 AI（未偵測到）'; }
+    }
+  } catch(e) {
+    if (badge) { badge.textContent = '🖥 偵測失敗'; badge.className = 'local-ai-badge off'; }
+  }
+}
+
+function agentOnModelChange(sel) {
+  const val = sel.value;
+  const [provider, model] = val.split(':');
+  _agentProvider = provider;
+  _agentModel    = model;
+}
+
+/* ── ② Task management ────────────────────────────────────────── */
+async function agentLoadTasks() {
+  try {
+    const r = await fetch(API + '/api/agent/tasks').then(r => r.json());
+    _agentTasks = r.tasks || [];
+    agentRenderTasks();
+  } catch {}
+}
+
+function getFileContext() {
+  if (!activeTab || !monacoEd) return '';
+  const code = monacoEd.getValue() || '';
+  return code.slice(0, 8000);  // max 8k chars
+}
+
+async function agentAddQuick(quickType) {
+  const titles = {
+    docstring:  `為 ${activeTab ? activeTab.split('/').pop() : '當前檔案'} 寫文件字串`,
+    find_bugs:  `找出 ${activeTab ? activeTab.split('/').pop() : '程式碼'} 的 Bug`,
+    write_tests:`為 ${activeTab ? activeTab.split('/').pop() : '程式碼'} 寫測試`,
+    refactor:   `重構 ${activeTab ? activeTab.split('/').pop() : '程式碼'}`,
+    explain:    `解釋 ${activeTab ? activeTab.split('/').pop() : '程式碼'}`,
+    optimize:   `優化 ${activeTab ? activeTab.split('/').pop() : '程式碼'} 效能`,
+    security:   `審查 ${activeTab ? activeTab.split('/').pop() : '程式碼'} 安全性`,
+    type_hints: `為 ${activeTab ? activeTab.split('/').pop() : '程式碼'} 加型別標注`,
+    simplify:   `簡化 ${activeTab ? activeTab.split('/').pop() : '程式碼'}`,
+    readme:     `為 ${activeTab ? activeTab.split('/').pop() : '專案'} 寫 README`,
+  };
+  const ctx = getFileContext();
+  const r = await apiPost(API + '/api/agent/tasks', {
+    title:      titles[quickType] || quickType,
+    prompt:     '',
+    context:    ctx,
+    quick_type: quickType,
+  });
+  if (r?.ok) {
+    _agentTasks.push(r.task);
+    agentRenderTasks();
+    showToast('任務已加入清單', 'ok', 1200);
+    // Switch to agent panel
+    showP('agent');
+  }
+}
+
+async function agentAddCustom() {
+  const inp = document.getElementById('agentInput');
+  if (!inp) return;
+  const title = inp.value.trim();
+  if (!title) { inp.focus(); return; }
+  const ctx = getFileContext();
+  const r = await apiPost(API + '/api/agent/tasks', {
+    title,
+    prompt: title,
+    context: ctx,
+    quick_type: '',
+  });
+  if (r?.ok) {
+    _agentTasks.push(r.task);
+    agentRenderTasks();
+    inp.value = '';
+    showToast('任務已加入', 'ok', 1000);
+  }
+}
+
+async function agentDeleteTask(tid) {
+  await fetch(API + '/api/agent/tasks/' + tid, { method: 'DELETE' });
+  _agentTasks = _agentTasks.filter(t => t.id !== tid);
+  agentRenderTasks();
+}
+
+async function agentClearDone() {
+  await apiPost(API + '/api/agent/tasks/clear-done', {});
+  await agentLoadTasks();
+  showToast('已清除完成的任務', 'info', 1200);
+}
+
+/* ── ③ Auto-run loop ──────────────────────────────────────────── */
+function agentToggleRun() {
+  if (_agentRunning) {
+    agentStop();
+  } else {
+    agentStart();
+  }
+}
+
+function agentStart() {
+  const pending = _agentTasks.filter(t => t.status === 'pending');
+  if (!pending.length) { showToast('沒有待執行的任務', 'info'); return; }
+  _agentRunning = true;
+  agentUpdateUI();
+  agentRunNext();
+}
+
+function agentStop() {
+  _agentRunning = false;
+  if (_agentAbort) { _agentAbort.abort(); _agentAbort = null; }
+  agentUpdateUI();
+  showToast('Agent 已暫停', 'info', 1500);
+}
+
+async function agentRunNext() {
+  if (!_agentRunning) return;
+
+  // Find next pending
+  const next = _agentTasks.find(t => t.status === 'pending');
+  if (!next) {
+    _agentRunning = false;
+    agentUpdateUI();
+    showToast('🎉 所有任務已完成！', 'ok', 3000);
+    return;
+  }
+
+  await agentRunTask(next.id);
+
+  // Brief pause then continue
+  if (_agentRunning) {
+    setTimeout(agentRunNext, 800);
+  }
+}
+
+async function agentRunTask(tid) {
+  // Update local state
+  const task = _agentTasks.find(t => t.id === tid);
+  if (!task) return;
+  task.status = 'running';
+  task.result = '';
+  agentRenderTasks();
+  agentScrollToTask(tid);
+
+  const params = new URLSearchParams({
+    provider:  _agentProvider,
+    model:     _agentModel,
+    local_url: _agentLocalUrl,
+  });
+
+  _agentAbort = new AbortController();
+  const el = document.getElementById(`task-result-${tid}`);
+  if (el) { el.classList.add('show'); el.textContent = ''; el.classList.add('streaming-cursor'); }
+
+  try {
+    const resp = await fetch(
+      `${API}/api/agent/run/${tid}?${params}`,
+      { signal: _agentAbort.signal }
+    );
+    const reader = resp.body.getReader();
+    const dec    = new TextDecoder();
+    let buf      = '';
+    let text     = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += dec.decode(value, { stream: true });
+      const lines = buf.split('\n');
+      buf = lines.pop() || '';
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        try {
+          const d = JSON.parse(line.slice(6));
+          if (d.type === 'text') {
+            text += d.text;
+            if (el) el.innerHTML = renderAIMarkdown(text);
+          } else if (d.type === 'done') {
+            task.status = 'done';
+            task.result = text;
+            agentRenderTasks();
+          } else if (d.type === 'error') {
+            task.status = 'failed';
+            task.error  = d.error;
+            if (el) el.innerHTML = `<span style="color:#f87171">❌ ${esc(d.error)}</span>`;
+            agentRenderTasks();
+          }
+        } catch {}
+      }
+    }
+  } catch(e) {
+    if (e.name === 'AbortError') {
+      task.status = 'cancelled';
+    } else {
+      task.status = 'failed';
+      task.error  = String(e);
+    }
+    agentRenderTasks();
+  } finally {
+    if (el) el.classList.remove('streaming-cursor');
+    _agentAbort = null;
+  }
+}
+
+/* ── ④ Render task list ───────────────────────────────────────── */
+const STATUS_ICON = {
+  pending:   '⏸', running: '⟳', done: '✅', failed: '❌', cancelled: '⊘'
+};
+const STATUS_LABEL = {
+  pending: '等待', running: '執行中', done: '完成', failed: '失敗', cancelled: '已取消'
+};
+
+function agentRenderTasks() {
+  const el = document.getElementById('agentTaskList');
+  if (!el) return;
+  if (!_agentTasks.length) {
+    el.innerHTML = `<div class="agent-empty">
+      <div style="font-size:32px;opacity:.15">🤖</div>
+      <div>選擇快速任務或輸入自訂指令</div>
+      <div style="font-size:11.5px;color:var(--tx4)">按「開始執行」，AI 會自動完成所有任務</div>
+    </div>`;
+    return;
+  }
+
+  el.innerHTML = _agentTasks.map(t => {
+    const icon  = STATUS_ICON[t.status] || '?';
+    const label = STATUS_LABEL[t.status] || t.status;
+    const hasResult = t.result || t.error;
+    return `<div class="task-item" id="task-${t.id}">
+      <div class="task-hdr" onclick="agentToggleResult('${t.id}')">
+        <span class="task-icon">${icon}</span>
+        <span class="task-title" title="${esc(t.title)}">${esc(t.title)}</span>
+        <span class="task-badge ${t.status}">${label}</span>
+        ${t.done_at ? `<span style="font:10px var(--mono);color:var(--tx4)">${((t.done_at-t.started_at)||0).toFixed(1)}s</span>` : ''}
+        <button class="task-del" onclick="event.stopPropagation();agentDeleteTask('${t.id}')" title="刪除">×</button>
+      </div>
+      ${hasResult ? `<div class="task-result" id="task-result-${t.id}">${t.result ? renderAIMarkdown(t.result) : `<span style="color:#f87171">${esc(t.error||'')}</span>`}</div>` : `<div class="task-result" id="task-result-${t.id}"></div>`}
+    </div>`;
+  }).join('');
+
+  // Auto-show result of running/done tasks
+  _agentTasks.forEach(t => {
+    if (t.status === 'running' || t.status === 'done') {
+      const r = document.getElementById(`task-result-${t.id}`);
+      if (r) r.classList.add('show');
+    }
+  });
+}
+
+function agentToggleResult(tid) {
+  const el = document.getElementById(`task-result-${tid}`);
+  if (el) el.classList.toggle('show');
+}
+
+function agentScrollToTask(tid) {
+  const el = document.getElementById(`task-${tid}`);
+  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+function agentUpdateUI() {
+  const btn    = document.getElementById('agentRunBtn');
+  const status = document.getElementById('agentStatus');
+  const pending = _agentTasks.filter(t => t.status === 'pending').length;
+
+  if (btn) {
+    btn.textContent = _agentRunning ? '⏸ 暫停' : '▶ 開始執行';
+    btn.className   = 'agent-run-btn' + (_agentRunning ? ' pause' : '');
+    btn.disabled    = !_agentRunning && pending === 0;
+  }
+  if (status) {
+    const running = _agentTasks.filter(t => t.status === 'running').length;
+    const done    = _agentTasks.filter(t => t.status === 'done').length;
+    if (_agentRunning) {
+      status.textContent = `⟳ 執行中（${pending} 待執行）`;
+      status.className   = 'agent-status running';
+    } else if (_agentTasks.length && pending === 0 && !_agentRunning) {
+      status.textContent = `✓ 全部完成（${done}/${_agentTasks.length}）`;
+      status.className   = 'agent-status done';
+    } else {
+      status.textContent = `⬤ 閒置（${pending} 待執行）`;
+      status.className   = 'agent-status idle';
+    }
+  }
+}
+
+/* ── Wire ────────────────────────────────────────────────────────── */
+window.addEventListener('load', () => {
+  agentDetectLocal();
+  agentLoadTasks();
+  setInterval(agentLoadTasks, 5000);   // Refresh every 5s
+}, { once: true });
+
+// Commands
+_COMMANDS.push(
+  { label: 'Agent: 開始執行任務', icon: '▶', cmd: () => { showP('agent'); agentStart(); } },
+  { label: 'Agent: 暫停',         icon: '⏸', cmd: agentStop },
+  { label: 'Agent: 清除完成任務', icon: '🗑', cmd: agentClearDone },
+  { label: 'Agent: 偵測本地 AI', icon: '🖥', cmd: agentDetectLocal },
+  { label: 'Agent: 加入 → 找 Bug',       icon: '🔍', cmd: () => agentAddQuick('find_bugs') },
+  { label: 'Agent: 加入 → 寫測試',       icon: '🧪', cmd: () => agentAddQuick('write_tests') },
+  { label: 'Agent: 加入 → 寫文件字串',   icon: '📝', cmd: () => agentAddQuick('docstring') },
+  { label: 'Agent: 加入 → 解釋程式碼',   icon: '💡', cmd: () => agentAddQuick('explain') },
+);
+
+/* ════════════════════════════════════════════════════════════════
+ *  PANEL CONTROLS
+ *  ① 底部面板關閉 / 收合 / 重開
+ *  ② 每個 Tab 可以單獨隱藏
+ *  ③ 狀態持久化（localStorage）
+ * ════════════════════════════════════════════════════════════════ */
+
+/* ── ① 底部面板開關 ──────────────────────────────────────────── */
+let _botVisible   = localStorage.getItem('pyf_bot_visible')   !== 'false';
+let _botCollapsed = localStorage.getItem('pyf_bot_collapsed') === 'true';
+
+function hideBotPanel() {
+  const bot = document.getElementById('bot');
+  if (!bot) return;
+  _botVisible = false;
+  localStorage.setItem('pyf_bot_visible', 'false');
+  bot.style.display = 'none';
+  monacoEd?.layout?.();
+  showToast('底部面板已關閉 — Ctrl+J 可重開', 'info', 3000);
+}
+
+function showBotPanel() {
+  const bot = document.getElementById('bot');
+  if (!bot) return;
+  _botVisible   = true;
+  _botCollapsed = false;
+  localStorage.setItem('pyf_bot_visible', 'true');
+  localStorage.setItem('pyf_bot_collapsed', 'false');
+  bot.style.display = '';
+  bot.classList.remove('collapsed');
+  _updateCollapseBtn();
+  monacoEd?.layout?.();
+}
+
+function toggleBotPanel() {
+  if (!_botVisible) { showBotPanel(); return; }
+  const bot = document.getElementById('bot');
+  if (!bot) return;
+  _botCollapsed = !_botCollapsed;
+  localStorage.setItem('pyf_bot_collapsed', String(_botCollapsed));
+  bot.classList.toggle('collapsed', _botCollapsed);
+  _updateCollapseBtn();
+  monacoEd?.layout?.();
+}
+
+function _updateCollapseBtn() {
+  const btn = document.getElementById('botCollapseBtn');
+  if (btn) btn.textContent = _botCollapsed ? '△' : '▽';
+}
+
+// Ctrl+J = VS Code 的 toggle terminal
+document.addEventListener('keydown', e => {
+  if ((e.ctrlKey || e.metaKey) && e.key === 'j') {
+    e.preventDefault();
+    if (!_botVisible) showBotPanel();
+    else toggleBotPanel();
+  }
+  // Ctrl+Shift+U = show/hide panel entirely
+  if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'U') {
+    e.preventDefault();
+    _botVisible ? hideBotPanel() : showBotPanel();
+  }
+}, true);
+
+// Restore state on load
+window.addEventListener('load', () => {
+  const bot = document.getElementById('bot');
+  if (!bot) return;
+  if (!_botVisible) {
+    bot.style.display = 'none';
+  } else if (_botCollapsed) {
+    bot.classList.add('collapsed');
+    _updateCollapseBtn();
+  }
+}, { once: true });
+
+// Double-click tab bar = toggle collapse
+document.addEventListener('DOMContentLoaded', () => {
+  const bttWrap = document.querySelector('.btt-wrap');
+  if (bttWrap) {
+    bttWrap.addEventListener('dblclick', e => {
+      // Only trigger on the bar itself, not on buttons
+      if (e.target.classList.contains('btt-wrap') ||
+          e.target.classList.contains('btt-wrap-inner')) {
+        toggleBotPanel();
+      }
+    });
+  }
+});
+
+/* ── ② 單獨隱藏 Tab ──────────────────────────────────────────── */
+let _hiddenTabs = new Set(
+  JSON.parse(localStorage.getItem('pyf_hidden_tabs') || '[]')
+);
+
+function hideBotTab(tabId, e) {
+  e?.stopPropagation();
+  _hiddenTabs.add(tabId);
+  localStorage.setItem('pyf_hidden_tabs', JSON.stringify([..._hiddenTabs]));
+  const el = document.getElementById('bt-' + tabId);
+  if (el) el.setAttribute('data-hidden', 'true');
+  showToast(`已隱藏「${tabId}」頁籤 — 可在設定裡恢復`, 'info', 2500);
+}
+
+function showAllTabs() {
+  _hiddenTabs.clear();
+  localStorage.removeItem('pyf_hidden_tabs');
+  document.querySelectorAll('.btt[data-hidden="true"]').forEach(el => {
+    el.removeAttribute('data-hidden');
+  });
+  showToast('所有頁籤已恢復顯示', 'ok', 1500);
+}
+
+// Apply hidden tabs on load + add × buttons
+window.addEventListener('load', () => {
+  setTimeout(() => {
+    // Add × button to specific tabs (AI-related ones)
+    const CLOSEABLE_TABS = [
+      ['bt-ai',     'ai'],
+      ['bt-agent',  'agent'],
+      ['bt-ig',     'ig'],      // import graph
+      ['bt-cg',     'cg'],      // call graph
+      ['bt-nb',     'nb'],      // notebook
+    ];
+    CLOSEABLE_TABS.forEach(([elId, tabId]) => {
+      const el = document.getElementById(elId);
+      if (!el) return;
+      // Add × button
+      const x = document.createElement('span');
+      x.className = 'btt-x';
+      x.innerHTML = '×';
+      x.title     = `隱藏此頁籤`;
+      x.addEventListener('click', ev => hideBotTab(tabId, ev));
+      el.appendChild(x);
+      // Apply if was hidden
+      if (_hiddenTabs.has(tabId)) el.setAttribute('data-hidden', 'true');
+    });
+  }, 300);
+}, { once: true });
+
+/* ── ③ 右鍵選單在 Tab 上 ────────────────────────────────────── */
+function _addTabContextMenu() {
+  document.querySelectorAll('.btt').forEach(btn => {
+    btn.addEventListener('contextmenu', e => {
+      e.preventDefault();
+      const tabId = (btn.id || '').replace('bt-', '');
+      const menu = [
+        { label: '隱藏此頁籤',   fn: () => hideBotTab(tabId) },
+        { label: '恢復所有頁籤', fn: showAllTabs },
+        { separator: true },
+        { label: '收合面板',     fn: toggleBotPanel },
+        { label: '關閉面板',     fn: hideBotPanel },
+      ];
+      showCtxMenu(e.clientX, e.clientY, menu);
+    });
+  });
+}
+
+window.addEventListener('load', () => { setTimeout(_addTabContextMenu, 500); }, { once: true });
+
+/* ── Commands ────────────────────────────────────────────────────── */
+_COMMANDS.push(
+  { label: '底部面板 → 關閉 (Ctrl+Shift+U)', icon: '✕', cmd: hideBotPanel },
+  { label: '底部面板 → 收合/展開 (Ctrl+J)',  icon: '▽', cmd: toggleBotPanel },
+  { label: '底部面板 → 重新開啟',             icon: '△', cmd: showBotPanel },
+  { label: '恢復所有隱藏的頁籤',              icon: '◻', cmd: showAllTabs },
+  { label: '隱藏 AI 頁籤',                   icon: '⬡', cmd: () => hideBotTab('ai') },
+  { label: '隱藏 Agent 頁籤',               icon: '🤖', cmd: () => hideBotTab('agent') },
+);
 
 /* ── File tree ── */
 async function openFolder(path){

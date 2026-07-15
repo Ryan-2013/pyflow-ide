@@ -1059,9 +1059,21 @@ def _register_term_pid(sid: str, pid: int):
     _term_pid_map[sid] = pid
 
 # File list for fuzzy file finder (Ctrl+P)
+_FILES_LIST_CACHE = {}
+
 @app.route('/api/files-list')
 def files_list():
     directory = request.args.get('dir', START_DIR)
+    cached = _FILES_LIST_CACHE.get(directory)
+    import os.path as _osp
+    if cached:
+        # Invalidate if mtime of dir changed
+        try:
+            mtime = _osp.getmtime(directory)
+            if abs(mtime - cached['mtime']) < 0.5:
+                return jsonify(cached['result'])
+        except Exception:
+            pass
     skip = {'__pycache__','.git','.venv','venv','node_modules','dist','build',
             '.pytest_cache','.mypy_cache','target','.next','.nuxt'}
     files = []
@@ -1076,7 +1088,12 @@ def files_list():
             if len(files) >= 5000: break
     except Exception:
         pass
-    return jsonify({'files': files, 'dir': directory})
+    result = {'files': files, 'dir': directory}
+    try:
+        _FILES_LIST_CACHE[directory] = {'result': result, 'mtime': _osp.getmtime(directory)}
+    except Exception:
+        pass
+    return jsonify(result)
 
 # ════════════════════════════════════════════════════════════════
 #  SETUP WIZARD — runtime detection, LSP auto-install, settings
@@ -1119,3 +1136,261 @@ def settings_set_apikey():
             os.environ['ANTHROPIC_API_KEY'] = key
         return jsonify({'ok': ok})
     return jsonify({'ok': False, 'error': 'Empty key'})
+
+import hashlib as _hashlib, time as _perf_time
+
+# ── Parse result LRU cache ────────────────────────────────────────
+_PARSE_CACHE     = {}
+_PARSE_CACHE_MAX = 150
+
+def _cache_get(path, content):
+    h = _hashlib.md5(content.encode('utf-8','replace')).hexdigest()
+    e = _PARSE_CACHE.get(path)
+    if e and e['h'] == h:
+        e['t'] = _perf_time.time()
+        return e['r']
+    return None
+
+def _cache_set(path, content, result):
+    h = _hashlib.md5(content.encode('utf-8','replace')).hexdigest()
+    _PARSE_CACHE[path] = {'h': h, 'r': result, 't': _perf_time.time()}
+    if len(_PARSE_CACHE) > _PARSE_CACHE_MAX:
+        del _PARSE_CACHE[min(_PARSE_CACHE, key=lambda k: _PARSE_CACHE[k]['t'])]
+
+# ── Git status cache (5s TTL) ─────────────────────────────────────
+_GIT_SC = {}
+
+def _git_cache_get(d):
+    e = _GIT_SC.get(d)
+    if e and (_perf_time.time() - e['t']) < 5.0:
+        return e['r']
+    return None
+
+def _git_cache_set(d, r):
+    _GIT_SC[d] = {'r': r, 't': _perf_time.time()}
+
+def _git_cache_clear(d):
+    _GIT_SC.pop(d, None)
+
+
+@app.route('/api/git/cache-clear', methods=['POST'])
+def git_cache_clear():
+    d = (request.get_json(silent=True) or {}).get('dir', START_DIR)
+    _git_cache_clear(d)
+    return jsonify({'ok': True})
+
+# ════════════════════════════════════════════════════════════════
+#  ChatGPT / OpenAI 整合
+# ════════════════════════════════════════════════════════════════
+@app.route('/api/ai/chat-openai', methods=['POST'])
+def ai_chat_openai():
+    """OpenAI GPT-4o SSE streaming — 對齊 Claude AI 格式"""
+    import urllib.request as _ur, json as _js, ssl as _ssl
+    d       = request.get_json(silent=True) or {}
+    msgs    = d.get('messages', [])
+    model   = d.get('model', 'gpt-4o')
+    api_key = (d.get('key') or os.environ.get('OPENAI_API_KEY')
+               or load_settings().get('openai_api_key', ''))
+
+    if not api_key:
+        return jsonify({'error': 'Missing OpenAI API key'}), 401
+
+    def stream():
+        body = _js.dumps({
+            'model':       model,
+            'messages':    msgs,
+            'stream':      True,
+            'max_tokens':  2048,
+            'temperature': 0.7,
+        }).encode()
+        req = _ur.Request(
+            'https://api.openai.com/v1/chat/completions',
+            data=body,
+            headers={
+                'Authorization': f'Bearer {api_key}',
+                'Content-Type':  'application/json',
+            }
+        )
+        ctx = _ssl.create_default_context()
+        try:
+            with _ur.urlopen(req, context=ctx, timeout=60) as resp:
+                for raw in resp:
+                    line = raw.decode('utf-8', errors='replace').strip()
+                    if not line.startswith('data: '): continue
+                    data = line[6:]
+                    if data == '[DONE]':
+                        yield 'data: {"type":"done"}\n\n'
+                        break
+                    try:
+                        chunk = _js.loads(data)
+                        delta = chunk['choices'][0]['delta'].get('content', '')
+                        if delta:
+                            yield f'data: {_js.dumps({"type":"text","text":delta})}\n\n'
+                    except Exception:
+                        pass
+        except Exception as e:
+            yield f'data: {_js.dumps({"type":"error","error":str(e)})}\n\n'
+
+    return Response(stream(), mimetype='text/event-stream',
+                    headers={'Cache-Control':'no-cache','X-Accel-Buffering':'no'})
+
+@app.route('/api/settings/set-openai-key', methods=['POST'])
+def settings_set_openai_key():
+    d = request.get_json(silent=True) or {}
+    key = d.get('key', '').strip()
+    if key:
+        ok = save_settings({'openai_api_key': key})
+        if ok: os.environ['OPENAI_API_KEY'] = key
+        return jsonify({'ok': ok})
+    return jsonify({'ok': False, 'error': 'Empty key'})
+
+@app.route('/api/ai/models')
+def ai_models():
+    """列出可用的 AI 模型"""
+    settings = load_settings()
+    has_claude = bool(settings.get('anthropic_api_key') or os.environ.get('ANTHROPIC_API_KEY'))
+    has_openai = bool(settings.get('openai_api_key') or os.environ.get('OPENAI_API_KEY'))
+    return jsonify({
+        'models': [
+            {'id':'claude-sonnet-4-6','name':'Claude Sonnet 4.6','provider':'anthropic',
+             'available':has_claude,'icon':'⬡','desc':'Anthropic — 最聰明'},
+            {'id':'gpt-4o',           'name':'GPT-4o',           'provider':'openai',
+             'available':has_openai, 'icon':'✦','desc':'OpenAI — 第二聰明'},
+            {'id':'gpt-4o-mini',      'name':'GPT-4o Mini',      'provider':'openai',
+             'available':has_openai, 'icon':'✧','desc':'OpenAI — 快速便宜'},
+        ],
+        'has_claude': has_claude,
+        'has_openai': has_openai,
+    })
+
+# ════════════════════════════════════════════════════════════════
+#  AI AGENT — 本地 AI + 任務佇列 + 自動連續執行
+# ════════════════════════════════════════════════════════════════
+from core.agent import (add_task, get_tasks, get_task, update_task,
+                        delete_task, clear_done, next_pending,
+                        detect_local_ai, build_agent_prompt, QUICK_PROMPTS)
+
+@app.route('/api/agent/tasks', methods=['GET'])
+def agent_tasks_get():
+    return jsonify({'tasks': get_tasks()})
+
+@app.route('/api/agent/tasks', methods=['POST'])
+def agent_tasks_post():
+    d = request.get_json(silent=True) or {}
+    task = add_task(
+        title      = d.get('title', '未命名任務')[:120],
+        prompt     = d.get('prompt', ''),
+        context    = d.get('context', ''),
+        quick_type = d.get('quick_type', ''),
+    )
+    return jsonify({'ok': True, 'task': task})
+
+@app.route('/api/agent/tasks/<tid>', methods=['DELETE'])
+def agent_task_delete(tid):
+    delete_task(tid)
+    return jsonify({'ok': True})
+
+@app.route('/api/agent/tasks/clear-done', methods=['POST'])
+def agent_clear_done():
+    clear_done()
+    return jsonify({'ok': True})
+
+@app.route('/api/agent/run/<tid>')
+def agent_run_task(tid):
+    """SSE: 執行單一任務，串流回應"""
+    import urllib.request as _ur, ssl as _ssl, json as _js
+
+    task = get_task(tid)
+    if not task:
+        return jsonify({'error': 'Task not found'}), 404
+
+    settings = load_settings()
+    d_body   = request.args
+
+    # Pick provider & key
+    provider = request.args.get('provider', 'anthropic')
+    model    = request.args.get('model', 'claude-sonnet-4-6')
+    local_url= request.args.get('local_url', '')
+
+    if provider == 'local' and local_url:
+        api_key  = 'lm-studio'
+        endpoint = local_url.rstrip('/') + '/v1/chat/completions'
+    elif provider == 'openai':
+        api_key  = (settings.get('openai_api_key') or
+                    os.environ.get('OPENAI_API_KEY', ''))
+        endpoint = 'https://api.openai.com/v1/chat/completions'
+    else:
+        # Use Claude via anthropic package
+        pass
+
+    def stream():
+        update_task(tid, status='running', started_at=time.time(), result='', error='')
+        yield f'data: {_js.dumps({"type":"status","status":"running","id":tid})}\n\n'
+
+        prompt = build_agent_prompt(task)
+
+        try:
+            if provider == 'anthropic':
+                # Use Anthropic SDK
+                import anthropic as _ant
+                api_key_ant = (settings.get('anthropic_api_key') or
+                               os.environ.get('ANTHROPIC_API_KEY', ''))
+                if not api_key_ant:
+                    raise ValueError('Missing Anthropic API key')
+                client = _ant.Anthropic(api_key=api_key_ant)
+                result_text = ''
+                with client.messages.stream(
+                    model=model, max_tokens=4096,
+                    messages=[{'role':'user','content':prompt}]
+                ) as s:
+                    for text in s.text_stream:
+                        result_text += text
+                        yield f'data: {_js.dumps({"type":"text","text":text,"id":tid})}\n\n'
+                update_task(tid, status='done', result=result_text, done_at=time.time())
+
+            else:
+                # OpenAI-compatible (GPT-4o or Local AI)
+                if not api_key:
+                    raise ValueError(f'Missing API key for {provider}')
+                body = _js.dumps({
+                    'model': model, 'stream': True, 'max_tokens': 4096,
+                    'messages': [{'role':'user','content':prompt}],
+                }).encode()
+                req = _ur.Request(endpoint, data=body, headers={
+                    'Authorization': f'Bearer {api_key}',
+                    'Content-Type':  'application/json',
+                })
+                ctx = _ssl._create_unverified_context()
+                result_text = ''
+                with _ur.urlopen(req, context=ctx, timeout=120) as resp:
+                    for raw in resp:
+                        line = raw.decode('utf-8','replace').strip()
+                        if not line.startswith('data: '): continue
+                        data = line[6:]
+                        if data == '[DONE]': break
+                        try:
+                            chunk = _js.loads(data)
+                            text  = chunk['choices'][0]['delta'].get('content','')
+                            if text:
+                                result_text += text
+                                yield f'data: {_js.dumps({"type":"text","text":text,"id":tid})}\n\n'
+                        except: pass
+                update_task(tid, status='done', result=result_text, done_at=time.time())
+
+            yield f'data: {_js.dumps({"type":"done","id":tid,"status":"done"})}\n\n'
+
+        except Exception as e:
+            err = str(e)[:200]
+            update_task(tid, status='failed', error=err, done_at=time.time())
+            yield f'data: {_js.dumps({"type":"error","error":err,"id":tid,"status":"failed"})}\n\n'
+
+    return Response(stream(), mimetype='text/event-stream',
+                    headers={'Cache-Control':'no-cache','X-Accel-Buffering':'no'})
+
+@app.route('/api/local-ai/status')
+def local_ai_status():
+    return jsonify(detect_local_ai())
+
+@app.route('/api/agent/quick-types')
+def agent_quick_types():
+    return jsonify({'types': list(QUICK_PROMPTS.keys())})
