@@ -58,8 +58,8 @@ jobs:
       - name: Build Electron app (Windows)
         if: runner.os == 'Windows'
         run: |
-          npx electron-builder --win --dir --publish never
-          Compress-Archive -Path dist/win-unpacked/* -DestinationPath "dist/PyFlow-IDE-Windows-${{ github.ref_name }}.zip" -Force
+          npm run pack
+          7z a -tzip "dist\PyFlow-IDE-Windows-${{ github.ref_name }}.zip" ".\dist\win-unpacked\*"
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
           WIN_CSC_LINK: ''
