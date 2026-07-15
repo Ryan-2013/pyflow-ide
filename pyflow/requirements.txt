@@ -1,6 +1,6 @@
 flask>=3.0
 flask-socketio>=5.4
-eventlet>=0.36
+simple-websocket>=1.0.0
 # Python >= 3.9 required (for ast.unparse)
 
 anthropic>=0.50.0

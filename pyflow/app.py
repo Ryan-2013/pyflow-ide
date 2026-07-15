@@ -4,6 +4,11 @@ from pathlib import Path
 from flask import Flask, request, jsonify, send_from_directory, Response, stream_with_context
 from flask_socketio import SocketIO
 
+if hasattr(sys.stdout, 'reconfigure'):
+    sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+if hasattr(sys.stderr, 'reconfigure'):
+    sys.stderr.reconfigure(encoding='utf-8', errors='replace')
+
 from core.ast_parser     import parse_python_file
 from core.go_parser      import parse_go_file
 from core.rust_parser    import parse_rust_file
@@ -366,7 +371,7 @@ def lsp_status():
     return jsonify(base)
 
 if __name__ == '__main__':
-    print(f'\n  ⬡  PyFlow IDE  →  http://localhost:{PORT}\n')
+    print(f'\n  PyFlow IDE -> http://localhost:{PORT}\n')
     socketio.run(app, host='127.0.0.1', port=PORT, debug=False, allow_unsafe_werkzeug=True)
 
 # ── Function-specific flow ─────────────────────────────────────────

@@ -1,6 +1,6 @@
 {
   "name": "pyflow-ide",
-  "version": "1.0.0",
+  "version": "1.0.4",
   "description": "⬡ Code flow visualization IDE",
   "main": "main.js",
   "author": {
@@ -46,6 +46,7 @@
       "main.js",
       "preload.js",
       "package.json",
+      "assets/**",
       "!pyflow/**",
       "!tools/**",
       "!*.spec",
@@ -78,11 +79,15 @@
           ]
         }
       ],
-      "icon": "assets/icon.png",
+      "icon": "assets/icon.ico",
       "publisherName": "PyFlow IDE",
       "verifyUpdateCodeSignature": false
     },
+    "portable": {
+      "artifactName": "PyFlow-IDE-Portable-${version}.${ext}"
+    },
     "nsis": {
+      "artifactName": "PyFlow-IDE-Setup-${version}.${ext}",
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
@@ -98,7 +103,7 @@
           ]
         }
       ],
-      "icon": "assets/icon.png",
+      "icon": "assets/icon.icns",
       "category": "public.app-category.developer-tools",
       "darkModeSupport": true,
       "hardenedRuntime": true,

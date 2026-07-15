@@ -9,6 +9,7 @@ const { spawn }   = require('child_process');
 const path        = require('path');
 const net         = require('net');
 const os          = require('os');
+const fs          = require('fs');
 
 const PORT        = process.env.PYFLOW_PORT || 5000;
 const DEV_URL     = `http://localhost:${PORT}`;
@@ -17,13 +18,23 @@ const START_TIMEOUT = 30000;   // 30 秒等待後端啟動
 let mainWindow    = null;
 let serverProcess = null;
 
+function logLaunch(message) {
+  const line = `[${new Date().toISOString()}] ${message}\n`;
+  console.log(line.trimEnd());
+  if (app.isPackaged) {
+    try {
+      fs.appendFileSync(path.join(app.getPath('userData'), 'pyflow-launch.log'), line);
+    } catch (_) {}
+  }
+}
+
 // ── 找到 Python 後端可執行路徑 ─────────────────────────────────
 function getServerCmd() {
   if (app.isPackaged) {
     // 打包模式：使用 PyInstaller 打包的二進位
     const ext  = process.platform === 'win32' ? '.exe' : '';
     const bin  = path.join(process.resourcesPath, 'server', `pyflow-server${ext}`);
-    return { cmd: bin, args: [] };
+    return { cmd: bin, args: ['--port', String(PORT)] };
   } else {
     // 開發模式：直接用 Python
     const python = process.platform === 'win32' ? 'python' : 'python3';
@@ -51,17 +62,26 @@ function waitForPort(port, timeout) {
 // ── 啟動 Python 後端 ─────────────────────────────────────────────
 function startServer() {
   const { cmd, args } = getServerCmd();
-  console.log(`[PyFlow] Starting server: ${cmd} ${args.join(' ')}`);
+  const cwd = app.isPackaged ? process.resourcesPath : __dirname;
+  logLaunch(`[PyFlow] Starting server: ${cmd} ${args.join(' ')}`);
+  logLaunch(`[PyFlow] cwd=${cwd} PYFLOW_PORT=${PORT}`);
 
   serverProcess = spawn(cmd, args, {
-    env: { ...process.env, PYFLOW_PORT: String(PORT) },
-    cwd: app.isPackaged ? process.resourcesPath : __dirname,
+    env: {
+      ...process.env,
+      PYFLOW_PORT: String(PORT),
+      PYTHONUTF8: '1',
+      PYTHONIOENCODING: 'utf-8',
+    },
+    cwd,
+    windowsHide: true,
   });
 
-  serverProcess.stdout?.on('data', d => process.stdout.write(`[server] ${d}`));
-  serverProcess.stderr?.on('data', d => process.stderr.write(`[server] ${d}`));
+  serverProcess.stdout?.on('data', d => logLaunch(`[server stdout] ${String(d).trimEnd()}`));
+  serverProcess.stderr?.on('data', d => logLaunch(`[server stderr] ${String(d).trimEnd()}`));
 
   serverProcess.on('error', err => {
+    logLaunch(`[PyFlow] Server error: ${err.stack || err.message}`);
     dialog.showErrorBox('啟動失敗',
       `無法啟動後端伺服器：\n${err.message}\n\n` +
       '請確認 Python 3.8+ 已安裝，或重新安裝 PyFlow IDE。');
@@ -69,6 +89,7 @@ function startServer() {
   });
 
   serverProcess.on('exit', (code, signal) => {
+    logLaunch(`[PyFlow] Server exited: code=${code} signal=${signal}`);
     if (code !== 0 && mainWindow) {
       console.error(`[PyFlow] Server exited: code=${code} signal=${signal}`);
     }

@@ -1,20 +1,15 @@
 # -*- mode: python ; coding: utf-8 -*-
-# PyFlow IDE — PyInstaller 打包設定
+# PyFlow IDE — PyInstaller 打包設定（修正版）
 # 將 Python 後端打包成單一執行檔
 
-from PyInstaller.utils.hooks import collect_submodules, collect_data_files
+from PyInstaller.utils.hooks import collect_submodules
 import sys
-
-# 收集 eventlet 所有子模組（Socket.IO 需要）
-eventlet_hidden = collect_submodules('eventlet')
-dns_hidden      = collect_submodules('dns')
 
 a = Analysis(
     ['pyflow/app.py'],
-    pathex=['.'],
+    pathex=['pyflow'],          # ← 讓 core / plugins 這些套件被當成模組找得到
     binaries=[],
     datas=[
-        # 靜態資源（前端 HTML/CSS/JS）
         ('pyflow/static',   'static'),
         ('pyflow/themes',   'themes'),
         ('pyflow/samples',  'samples'),
@@ -23,31 +18,23 @@ a = Analysis(
     ],
     hiddenimports=[
         # Flask 生態
-        'flask', 'flask_socketio', 'werkzeug',
-        'werkzeug.security', 'jinja2', 'click',
-        # Socket.IO
-        'eventlet', 'engineio', 'socketio',
-        'engineio.async_drivers.eventlet',
-        'socketio.async_drivers.eventlet',
-        *eventlet_hidden,
-        *dns_hidden,
+        'flask', 'flask_socketio', 'werkzeug', 'jinja2', 'click',
+        # ★ 核心修正：app.py 用 async_mode='threading'
+        #   必須明確帶入 threading driver + simple_websocket，
+        #   否則 exe 啟動時會噴 "Invalid async_mode specified"。
+        'engineio.async_drivers.threading',
+        'simple_websocket',
+        'engineio', 'socketio',
         # 其他依賴
-        'anthropic', 'chardet', 'pkg_resources',
-        'bidict', 'six', 'greenlet',
-        # PyFlow 插件（需要明確列出）
-        'plugins', 'plugins.lang_python', 'plugins.lang_go',
-        'plugins.lang_rust', 'plugins.lang_js_ts',
-        'plugins.lang_java', 'plugins.lang_c',
-        'plugins.lang_cpp', 'plugins.lang_shell',
-        'plugins.lang_jupyter',
-        'core.ast_parser', 'core.git_ops', 'core.lsp_client',
-        'core.tracer', 'core.import_graph', 'core.search',
-        'core.setup', 'core.plugin_watcher',
+        'chardet', 'pkg_resources', 'bidict', 'six',
+        # core / plugins 全部子模組自動收集（app.py 幾乎全都會用到）
+        *collect_submodules('core'),
+        *collect_submodules('plugins'),
     ],
     hookspath=[],
     runtime_hooks=[],
     excludes=['tkinter', 'matplotlib', 'scipy', 'numpy', 'PIL',
-              'PyQt5', 'wx', 'gi'],
+              'PyQt5', 'wx', 'gi', 'eventlet'],   # ← 不用 eventlet，排除以縮小體積
     noarchive=False,
 )
 
@@ -66,7 +53,7 @@ exe = EXE(
     upx=True,
     upx_exclude=[],
     runtime_tmpdir=None,
-    console=False,      # 不顯示黑色命令列視窗
+    console=False,
     disable_windowed_traceback=False,
     argv_emulation=False,
     target_arch=None,
@@ -77,15 +64,14 @@ exe = EXE(
     ),
 )
 
-# macOS .app bundle
 app = BUNDLE(
     exe,
     name='PyFlow IDE.app',
     icon='assets/icon.icns',
     bundle_identifier='com.pyflow.ide',
     info_plist={
-        'CFBundleShortVersionString': '1.0.0',
-        'CFBundleVersion': '1.0.0',
+        'CFBundleShortVersionString': '1.0.2',
+        'CFBundleVersion': '1.0.2',
         'NSHighResolutionCapable': True,
         'LSMinimumSystemVersion': '11.0',
     },
