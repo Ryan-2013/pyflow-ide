@@ -2,12 +2,11 @@ name: 🚀 Build & Release
 
 on:
   push:
-    tags:
-      - 'v*'           # 推送 tag（例如 v1.0.0）才觸發
-  workflow_dispatch:   # 也可手動觸發
+    tags: ['v*']
+  workflow_dispatch:
 
 permissions:
-  contents: write      # 允許建立 Release
+  contents: write
 
 jobs:
   build:
@@ -18,76 +17,96 @@ jobs:
       matrix:
         include:
           - os: ubuntu-latest
-            artifact: '*.AppImage,*.deb'
+            artifact_ext: "*.AppImage *.deb"
           - os: windows-latest
-            artifact: '*.exe'
+            artifact_ext: "*.exe"
           - os: macos-latest
-            artifact: '*.dmg'
+            artifact_ext: "*.dmg"
 
     steps:
-      # ── 取得程式碼 ─────────────────────────────────────────────
       - name: Checkout
         uses: actions/checkout@v4
 
-      # ── 設定 Python ────────────────────────────────────────────
       - name: Setup Python 3.11
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-          cache: 'pip'
 
-      # ── 安裝 Python 依賴 + PyInstaller ─────────────────────────
-      - name: Install Python deps
+      - name: Install Python deps + PyInstaller
         run: |
-          pip install -r pyflow/requirements.txt
-          pip install pyinstaller
+          pip install flask flask-socketio eventlet anthropic chardet
+          pip install pyinstaller==6.3.0
 
-      # ── 打包 Python 後端（PyInstaller）────────────────────────
-      - name: Bundle Python backend
+      - name: Bundle Python backend (Windows)
+        if: runner.os == 'Windows'
         run: |
-          pyinstaller pyflow.spec --distpath dist-server --clean --noconfirm
-        env:
-          PYTHONOPTIMIZE: '1'
+          python -m PyInstaller --onefile --noconsole --name pyflow-server `
+            --add-data "pyflow/static;static" `
+            --add-data "pyflow/plugins;plugins" `
+            --add-data "pyflow/core;core" `
+            --add-data "pyflow/themes;themes" `
+            --add-data "pyflow/samples;samples" `
+            --hidden-import flask `
+            --hidden-import flask_socketio `
+            --hidden-import eventlet `
+            --hidden-import engineio `
+            --hidden-import socketio `
+            --hidden-import anthropic `
+            --hidden-import chardet `
+            --distpath dist-server `
+            pyflow/app.py
+
+      - name: Bundle Python backend (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          python -m PyInstaller --onefile --noconsole --name pyflow-server \
+            --add-data "pyflow/static:static" \
+            --add-data "pyflow/plugins:plugins" \
+            --add-data "pyflow/core:core" \
+            --add-data "pyflow/themes:themes" \
+            --add-data "pyflow/samples:samples" \
+            --hidden-import flask \
+            --hidden-import flask_socketio \
+            --hidden-import eventlet \
+            --hidden-import engineio \
+            --hidden-import socketio \
+            --hidden-import anthropic \
+            --hidden-import chardet \
+            --distpath dist-server \
+            pyflow/app.py
 
       - name: List server binary
-        run: ls -la dist-server/
+        run: ls dist-server/
 
-      # ── 設定 Node.js ───────────────────────────────────────────
-      - name: Setup Node.js 18
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
-          cache: 'npm'
+          node-version: '20'
 
-      # ── 安裝 Node 依賴 ─────────────────────────────────────────
       - name: Install Node deps
-        run: npm ci
+        run: npm ci || npm install
 
-      # ── macOS：產生臨時簽名（避免 Gatekeeper 問題）────────────
-      - name: Generate self-signed cert (macOS)
-        if: matrix.os == 'macos-latest'
-        run: |
-          security create-keychain -p "" build.keychain
-          security default-keychain -s build.keychain
-          security unlock-keychain -p "" build.keychain
-        continue-on-error: true
-
-      # ── 建立 Electron 安裝包 ──────────────────────────────────
-      - name: Build Electron app
-        run: npm run dist
+      - name: Build Electron app (Windows)
+        if: runner.os == 'Windows'
+        run: npx electron-builder --win --publish never
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          CSC_IDENTITY_AUTO_DISCOVERY: 'false'   # 跳過程式碼簽名
-          APPLE_ID: ''
-          APPLE_APP_SPECIFIC_PASSWORD: ''
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
 
-      # ── 列出產出的安裝包 ──────────────────────────────────────
+      - name: Build Electron app (macOS)
+        if: runner.os == 'macOS'
+        run: npx electron-builder --mac --publish never
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+
+      - name: Build Electron app (Linux)
+        if: runner.os == 'Linux'
+        run: npx electron-builder --linux --publish never
+
       - name: List dist files
-        run: ls -la dist/
+        run: ls dist/
 
-      # ── 上傳到 GitHub Release ─────────────────────────────────
-      - name: Upload to GitHub Release
-        uses: softprops/action-gh-release@v1
+      - name: Upload to Release
+        uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/tags/')
         with:
           files: |
@@ -101,25 +120,19 @@ jobs:
 
             ### 下載
 
-            | 平台 | 檔案 | 說明 |
-            |------|------|------|
-            | Windows | `PyFlow-IDE-Setup-*.exe` | 安裝程式（推薦）|
-            | Windows | `PyFlow-IDE-*.exe` | 免安裝版 |
-            | macOS | `PyFlow-IDE-*.dmg` | 拖曳安裝 |
-            | Linux | `PyFlow-IDE-*.AppImage` | 直接執行 |
-            | Linux | `pyflow-ide_*.deb` | Debian/Ubuntu |
+            | 平台 | 檔案 |
+            |------|------|
+            | Windows | `PyFlow-IDE-Setup-*.exe` |
+            | macOS | `PyFlow-IDE-*.dmg` |
+            | Linux | `PyFlow-IDE-*.AppImage` |
 
             ### 安裝說明
+            - **Windows**: 直接執行安裝程式
+            - **macOS**: 拖曳到 Applications
+            - **Linux**: `chmod +x *.AppImage && ./*.AppImage`
 
-            **Windows**：下載 `*-Setup.exe`，執行安裝程式。
-            macOS 如遇「無法開啟」：System Preferences → Security → Allow Anyway
-            **Linux AppImage**：`chmod +x PyFlow-*.AppImage && ./PyFlow-*.AppImage`
-
-            ### 需要額外安裝（提升功能）
-            ```bash
-            pip install python-lsp-server[all]  # Python 補全
-            go install golang.org/x/tools/gopls@latest  # Go 補全
-            ```
+            ### 第一次執行
+            啟動後點 ⚙ 按鈕安裝 LSP 伺服器（選填）
           draft: false
           prerelease: false
         env:
