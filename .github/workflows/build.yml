@@ -37,47 +37,12 @@ jobs:
       #    所以其實不需要 eventlet；simple-websocket 才是真正要打包的。
       - name: Install Python deps + PyInstaller
         run: |
-          pip install flask flask-socketio simple-websocket chardet
-          pip install pyinstaller==6.3.0
+          python -m pip install -r pyflow/requirements.txt
+          python -m pip install pyinstaller==6.3.0
 
-      # ⬇️ 修正 2（核心）：hidden-import 改成 engineio.async_drivers.threading
-      #    這是造成「打包成功但 exe 一開就閃退 / 啟動逾時」的真正原因。
-      #    engineio 的 async driver 是執行時動態載入，PyInstaller 靜態分析抓不到，
-      #    必須明確列出，否則會噴 ValueError: Invalid async_mode specified。
-      - name: Bundle Python backend (Windows)
-        if: runner.os == 'Windows'
+      - name: Bundle Python backend
         run: |
-          python -m PyInstaller --onefile --noconsole --name pyflow-server `
-            --icon assets/icon.ico `
-            --add-data "pyflow/static;static" `
-            --add-data "pyflow/plugins;plugins" `
-            --add-data "pyflow/core;core" `
-            --add-data "pyflow/themes;themes" `
-            --add-data "pyflow/samples;samples" `
-            --hidden-import flask `
-            --hidden-import flask_socketio `
-            --hidden-import engineio.async_drivers.threading `
-            --hidden-import simple_websocket `
-            --hidden-import chardet `
-            --distpath dist-server `
-            pyflow/app.py
-
-      - name: Bundle Python backend (Unix)
-        if: runner.os != 'Windows'
-        run: |
-          python -m PyInstaller --onefile --noconsole --name pyflow-server \
-            --add-data "pyflow/static:static" \
-            --add-data "pyflow/plugins:plugins" \
-            --add-data "pyflow/core:core" \
-            --add-data "pyflow/themes:themes" \
-            --add-data "pyflow/samples:samples" \
-            --hidden-import flask \
-            --hidden-import flask_socketio \
-            --hidden-import engineio.async_drivers.threading \
-            --hidden-import simple_websocket \
-            --hidden-import chardet \
-            --distpath dist-server \
-            pyflow/app.py
+          python -m PyInstaller pyflow.spec --distpath dist-server --clean --noconfirm
 
       - name: List server binary
         run: ls dist-server/
