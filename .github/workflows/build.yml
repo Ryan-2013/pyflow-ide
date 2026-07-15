@@ -92,7 +92,7 @@ jobs:
 
       - name: Build Electron app (Windows)
         if: runner.os == 'Windows'
-        run: npx electron-builder --win --publish never
+        run: npx electron-builder --win portable --x64 --publish never
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
           WIN_CSC_LINK: ''
@@ -128,7 +128,7 @@ jobs:
 
             | 平台 | 檔案 |
             |------|------|
-            | Windows | `PyFlow-IDE-Setup-*.exe` |
+            | Windows | `PyFlow-IDE-Portable-*.exe` |
             | macOS | `PyFlow-IDE-*.dmg` |
             | Linux | `PyFlow-IDE-*.AppImage` |
 
