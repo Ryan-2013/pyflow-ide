@@ -32,15 +32,23 @@ jobs:
         with:
           python-version: '3.11'
 
+      # ⬇️ 修正 1：補上 simple-websocket（threading 模式的 WebSocket 支援）
+      #    app.py 用的是 async_mode='threading'，不是 eventlet，
+      #    所以其實不需要 eventlet；simple-websocket 才是真正要打包的。
       - name: Install Python deps + PyInstaller
         run: |
-          pip install flask flask-socketio eventlet anthropic chardet
+          pip install flask flask-socketio simple-websocket chardet
           pip install pyinstaller==6.3.0
 
+      # ⬇️ 修正 2（核心）：hidden-import 改成 engineio.async_drivers.threading
+      #    這是造成「打包成功但 exe 一開就閃退 / 啟動逾時」的真正原因。
+      #    engineio 的 async driver 是執行時動態載入，PyInstaller 靜態分析抓不到，
+      #    必須明確列出，否則會噴 ValueError: Invalid async_mode specified。
       - name: Bundle Python backend (Windows)
         if: runner.os == 'Windows'
         run: |
           python -m PyInstaller --onefile --noconsole --name pyflow-server `
+            --icon assets/icon.ico `
             --add-data "pyflow/static;static" `
             --add-data "pyflow/plugins;plugins" `
             --add-data "pyflow/core;core" `
@@ -48,10 +56,8 @@ jobs:
             --add-data "pyflow/samples;samples" `
             --hidden-import flask `
             --hidden-import flask_socketio `
-            --hidden-import eventlet `
-            --hidden-import engineio `
-            --hidden-import socketio `
-            --hidden-import anthropic `
+            --hidden-import engineio.async_drivers.threading `
+            --hidden-import simple_websocket `
             --hidden-import chardet `
             --distpath dist-server `
             pyflow/app.py
@@ -67,10 +73,8 @@ jobs:
             --add-data "pyflow/samples:samples" \
             --hidden-import flask \
             --hidden-import flask_socketio \
-            --hidden-import eventlet \
-            --hidden-import engineio \
-            --hidden-import socketio \
-            --hidden-import anthropic \
+            --hidden-import engineio.async_drivers.threading \
+            --hidden-import simple_websocket \
             --hidden-import chardet \
             --distpath dist-server \
             pyflow/app.py
