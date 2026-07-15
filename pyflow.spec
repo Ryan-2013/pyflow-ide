@@ -70,8 +70,8 @@ app = BUNDLE(
     icon='assets/icon.icns',
     bundle_identifier='com.pyflow.ide',
     info_plist={
-        'CFBundleShortVersionString': '1.0.9',
-        'CFBundleVersion': '1.0.9',
+        'CFBundleShortVersionString': '1.0.10',
+        'CFBundleVersion': '1.0.10',
         'NSHighResolutionCapable': True,
         'LSMinimumSystemVersion': '11.0',
     },

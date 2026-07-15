@@ -71,6 +71,11 @@ def lang_list():
 def index():
     return send_from_directory('static', 'index.html')
 
+@app.route('/vendor/socket.io.js')
+def socket_io_client():
+    static_dir = Path(__file__).resolve().parent / 'static'
+    return send_from_directory(static_dir, 'vendor-socket-client.js')
+
 # ── Meta ─────────────────────────────────────────────────────────
 @app.route('/api/meta')
 def meta():
@@ -369,10 +374,6 @@ def lsp_status():
         cmd = p.get_lsp_command()
         base[p.id] = bool(cmd) and (bool(__import__('shutil').which(cmd[0])) if cmd else False)
     return jsonify(base)
-
-if __name__ == '__main__':
-    print(f'\n  PyFlow IDE -> http://localhost:{PORT}\n')
-    socketio.run(app, host='127.0.0.1', port=PORT, debug=False, allow_unsafe_werkzeug=True)
 
 # ── Function-specific flow ─────────────────────────────────────────
 @app.route('/api/parse-fn', methods=['POST'])
@@ -1399,3 +1400,8 @@ def local_ai_status():
 @app.route('/api/agent/quick-types')
 def agent_quick_types():
     return jsonify({'types': list(QUICK_PROMPTS.keys())})
+
+
+if __name__ == '__main__':
+    print(f'\n  PyFlow IDE -> http://localhost:{PORT}\n')
+    socketio.run(app, host='127.0.0.1', port=PORT, debug=False, allow_unsafe_werkzeug=True)

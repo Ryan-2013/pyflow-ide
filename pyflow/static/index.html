@@ -7,7 +7,7 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.min.css">
 <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@xterm/addon-fit@0.8.0/lib/addon-fit.min.js"></script>
-<script src="/socket.io.js"></script>
+<script src="/vendor/socket.io.js"></script>
 <style>
 /* ════════════════════════════════════════════════════════════════
  *  PyFlow IDE — Design System (Claude-inspired, warm dark default)
@@ -2092,6 +2092,22 @@ svg text{user-select:none;-webkit-user-select:none;pointer-events:none}
 <script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.44.0/min/vs/loader.min.js"></script>
 <script>
 'use strict';
+window.__pyflowErrors = [];
+window.addEventListener('error', event => {
+  window.__pyflowErrors.push({
+    type: 'error',
+    message: event.message,
+    filename: event.filename,
+    line: event.lineno,
+    col: event.colno,
+  });
+});
+window.addEventListener('unhandledrejection', event => {
+  window.__pyflowErrors.push({
+    type: 'unhandledrejection',
+    message: String(event.reason?.message || event.reason || 'Unknown rejection'),
+  });
+});
 /* ════════════════════════════════════════════════════════════════
  *  PyFlow IDE — Complete Frontend
  *  Features: A1-A5, B1-B7, C1, C3, D4, quick-fixes
@@ -3899,9 +3915,8 @@ function setupFileDragDrop() {
  *  WELCOME SCREEN
  * ════════════════════════════════════════════════════════════════ */
 function maybeShowWelcome() {
-  if (!localStorage.getItem('pyf_welcomed')) {
-    document.getElementById('welcome')?.classList.add('show');
-  }
+  localStorage.setItem('pyf_welcomed', '1');
+  document.getElementById('welcome')?.classList.remove('show');
 }
 
 /* ════════════════════════════════════════════════════════════════
@@ -6240,6 +6255,9 @@ const ONBOARD_STEPS = [
 let _onboardStep = 0;
 
 function showOnboarding() {
+  localStorage.setItem('pyf_onboarded', '1');
+  document.getElementById('onboard')?.classList.remove('show');
+  return;
   if (localStorage.getItem('pyf_onboarded')) return;
   _onboardStep = 0;
   renderOnboardStep();
@@ -10295,10 +10313,8 @@ function mc(cmd){
 
 /* ── Init ── */
 window.addEventListener('load',()=>{
-  if (!localStorage.getItem('pyf_welcomed')) {
-    document.getElementById('welcome')?.classList.add('show');
-  }
-  showOnboarding();  // Show onboarding for truly first-time users
+  maybeShowWelcome();
+  showOnboarding();  // Startup stays unobstructed; help remains available from the menu.
   setupFileDragDrop();
   checkLSPStatus();
   setupGitAutoRefresh();
@@ -10341,5 +10357,38 @@ window.addEventListener('load',()=>{
   }
   initTerminal('default');
 });
+
+(function exposeInlineHandlers(){
+  window.__pyflowBridgeRan = true;
+  const names = [
+    'addSnippetDialog','addSnippetPrompt','addWatch','agentAddCustom','agentAddQuick',
+    'agentClearDone','agentDeleteTask','agentDetectLocal','agentOnModelChange',
+    'agentToggleResult','agentToggleRun','clearAIChat','clearTrace','closeDiff',
+    'closePalette','closeSettings','closeSetup','closeTab','closeTerminal','closeTmpl',
+    'clrP','ctxFtAct','ctxNdAct','dbgCmd','dbgEvalInput','dbgStart','dbgStop',
+    'deleteSnippet','doCommit','doReplace','doSearch','dockPanel','exitFnFocus',
+    'exportInteractiveHTML','exportPNG','exportSVG','filterCallGraph','findReferences',
+    'gitFetch','gitPull','gitPush','gitStage','gitUnstage','hideAllCtx','installLSP',
+    'jumpToProblem','loadCallGraph','loadCommitPanel','loadGitLog','loadImportGraph',
+    'loadOutline','loadSetupStatus','mc','newTerminal','nodeAddFunction','nodeAddParam',
+    'nodeDeleteFunction','nodeInsertCall','nodeRename','onPaletteInputFull','onPaletteKey',
+    'onSrchKey','onboardAction','onboardNext','openDiffView','openFile','openSettings',
+    'openSetup','pickIndent','removeWatch','renderSnippetsEditor','runAllCells','runCell',
+    'runCoverage','runProfiler','runProfilerQuick','runTask','runTests','runTrace',
+    'saveApiKey','saveOpenAIKey_setup','saveSett','selPalItem','selectFrame',
+    'selectTemplate','selectVenv','sendAIMessage','setAIKey','setTheme','setViewMode',
+    'setupGitAutoRefresh','showP','stageAll','startMoveFunction','stopRun','swapFunctions',
+    'switchBranch','switchTab','switchTerminal','toggleBot','toggleBranchDrop',
+    'toggleCodeLens','toggleEOL','toggleReplace','toggleSett','toggleSplitEditor',
+    'toggleSrchOpt','toggleTabOverflow','toggleTaskDrop','toggleVenvDrop','toggleVimMode',
+    'viewCommit'
+  ];
+  for (const name of names) {
+    try {
+      const fn = eval(`typeof ${name} === "function" ? ${name} : null`);
+      if (fn) window[name] = fn;
+    } catch {}
+  }
+})();
 </script>
 </body></html>

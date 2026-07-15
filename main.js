@@ -13,7 +13,7 @@ const fs          = require('fs');
 
 const PORT        = process.env.PYFLOW_PORT || 5000;
 const DEV_URL     = `http://localhost:${PORT}`;
-const START_TIMEOUT = 30000;   // 30 秒等待後端啟動
+const START_TIMEOUT = 90000;   // 低資源環境下 PyInstaller 後端首次解壓會比較久
 
 let mainWindow    = null;
 let serverProcess = null;
@@ -174,6 +174,117 @@ app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();
 });
 
-// ── IPC: 開啟外部連結 ──────────────────────────────────────────
+function configPath() {
+  return path.join(app.getPath('userData'), 'config.json');
+}
+
+async function readConfig() {
+  try {
+    return JSON.parse(await fs.promises.readFile(configPath(), 'utf8'));
+  } catch (_) {
+    return {};
+  }
+}
+
+async function writeConfig(patch) {
+  const next = { ...(await readConfig()), ...(patch || {}) };
+  await fs.promises.mkdir(path.dirname(configPath()), { recursive: true });
+  await fs.promises.writeFile(configPath(), JSON.stringify(next, null, 2), 'utf8');
+  return next;
+}
+
+function normalizeDialogPath(result) {
+  if (result.canceled || !result.filePaths?.length) return null;
+  return result.filePaths[0];
+}
+
+// ── IPC: renderer bridge ───────────────────────────────────────
 ipcMain.handle('open-external', (_, url) => shell.openExternal(url));
 ipcMain.handle('get-app-version', () => app.getVersion());
+ipcMain.handle('get:port', () => Number(PORT));
+ipcMain.handle('get:platform', () => process.platform);
+ipcMain.handle('get:config', () => readConfig());
+ipcMain.handle('set:config', (_, patch) => writeConfig(patch));
+
+ipcMain.handle('window:setTitle', (_, title) => {
+  if (mainWindow && typeof title === 'string') {
+    mainWindow.setTitle(title);
+  }
+  return true;
+});
+
+ipcMain.handle('dialog:openFolder', async () => {
+  const result = await dialog.showOpenDialog(mainWindow, {
+    title: 'Open Folder',
+    properties: ['openDirectory'],
+  });
+  return normalizeDialogPath(result);
+});
+
+ipcMain.handle('dialog:openFile', async () => {
+  const result = await dialog.showOpenDialog(mainWindow, {
+    title: 'Open File',
+    properties: ['openFile'],
+  });
+  return normalizeDialogPath(result);
+});
+
+ipcMain.handle('dialog:save', async (_, defaultPath) => {
+  const result = await dialog.showSaveDialog(mainWindow, {
+    defaultPath: defaultPath || undefined,
+  });
+  if (result.canceled || !result.filePath) return null;
+  return result.filePath;
+});
+
+ipcMain.handle('dialog:confirm', async (_, message) => {
+  const result = await dialog.showMessageBox(mainWindow, {
+    type: 'question',
+    buttons: ['Cancel', 'OK'],
+    defaultId: 1,
+    cancelId: 0,
+    message: String(message || 'Continue?'),
+  });
+  return result.response === 1;
+});
+
+ipcMain.handle('fs:readFile', async (_, filePath) => {
+  return fs.promises.readFile(filePath, 'utf8');
+});
+
+ipcMain.handle('fs:writeFile', async (_, filePath, content) => {
+  await fs.promises.mkdir(path.dirname(filePath), { recursive: true });
+  await fs.promises.writeFile(filePath, content ?? '', 'utf8');
+  return true;
+});
+
+ipcMain.handle('fs:readDir', async (_, dirPath) => {
+  const names = await fs.promises.readdir(dirPath);
+  const entries = await Promise.all(names.map(async name => {
+    const full = path.join(dirPath, name);
+    const stat = await fs.promises.stat(full);
+    return {
+      name,
+      path: full,
+      type: stat.isDirectory() ? 'dir' : 'file',
+      size: stat.isDirectory() ? 0 : stat.size,
+      is_python: /\.(py|pyw)$/i.test(name),
+    };
+  }));
+  return entries.sort((a, b) => {
+    if (a.type !== b.type) return a.type === 'dir' ? -1 : 1;
+    return a.name.localeCompare(b.name);
+  });
+});
+
+ipcMain.handle('fs:exists', async (_, targetPath) => fs.existsSync(targetPath));
+
+ipcMain.handle('fs:showInFinder', async (_, targetPath) => {
+  if (targetPath) shell.showItemInFolder(targetPath);
+  return true;
+});
+
+ipcMain.handle('fs:mkdirp', async (_, dirPath) => {
+  await fs.promises.mkdir(dirPath, { recursive: true });
+  return true;
+});
