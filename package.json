@@ -1,6 +1,6 @@
 {
   "name": "pyflow-ide",
-  "version": "1.0.10",
+  "version": "1.0.11",
   "description": "⬡ Code flow visualization IDE",
   "main": "main.js",
   "author": {

@@ -3236,7 +3236,7 @@ async function openFile(path, lineNum){
   if(!tabs[path]){
     addTab(path);
     if(!isImg){
-      try{ const d=await fetch(API+'/api/readpath='+encodeURIComponent(path)).then(r=>r.json()); tabs[path]={content:d.content||''}; }
+      try{ const d=await fetch(API+'/api/read?path='+encodeURIComponent(path)).then(r=>r.json()); tabs[path]={content:d.content||''}; }
       catch(e){ showToast('無法開啟：'+e,'err'); return; }
     }else{ tabs[path]={content:'',isImg:true}; }
   }
@@ -3285,7 +3285,7 @@ async function switchTab(path){
     if(img){
       document.getElementById('mc').style.display='none';
       document.getElementById('imgv').style.display='flex';
-      document.getElementById('imgEl').src=API+'/api/servepath='+encodeURIComponent(path);
+      document.getElementById('imgEl').src=API+'/api/serve?path='+encodeURIComponent(path);
       document.getElementById('imgInfo2').textContent=path.split('/').pop();
     } else if(monacoEd){
       document.getElementById('mc').style.display='block';
@@ -3316,7 +3316,7 @@ function setPane(mode){
 }
 
 async function loadFile(path){
-  try{ const d=await fetch(API+'/api/readpath='+encodeURIComponent(path)).then(r=>r.json()); tabs[path]={content:d.content||''}; if(path===activeTab&&monacoEd)monacoEd.setValue(d.content||''); }
+  try{ const d=await fetch(API+'/api/read?path='+encodeURIComponent(path)).then(r=>r.json()); tabs[path]={content:d.content||''}; if(path===activeTab&&monacoEd)monacoEd.setValue(d.content||''); }
   catch{}
 }
 
@@ -3347,7 +3347,7 @@ function renderMd(content){
       const at=img.getAttribute('src');
       if(at&&!at.startsWith('http')&&activeTab){
         const dir=activeTab.replace(/[^/]+$/,'');
-        img.src=API+'/api/servepath='+encodeURIComponent(dir+at);
+        img.src=API+'/api/serve?path='+encodeURIComponent(dir+at);
       }
     });
   }else{
@@ -4293,7 +4293,7 @@ async function renameSymbol() {
   for (const [uri, edits] of Object.entries(changes)) {
     const path = _uriToPath(uri);
     try {
-      const code = tabs[path]?.content || (await fetch(API+'/api/readpath='+encodeURIComponent(path)).then(r=>r.json())).content || '';
+      const code = tabs[path]?.content || (await fetch(API+'/api/read?path='+encodeURIComponent(path)).then(r=>r.json())).content || '';
       let lines = code.split('\n');
       ([...edits]).sort((a,b)=>b.range.start.line-a.range.start.line).forEach(e => {
         const sl = e.range.start.line, sc = e.range.start.character;
@@ -10389,6 +10389,38 @@ window.addEventListener('load',()=>{
       if (fn) window[name] = fn;
     } catch {}
   }
+})();
+
+(function installInlineEventBridge(){
+  const events = ['click','input','keydown','change','contextmenu','dblclick','mousedown','mousemove','mouseup','wheel'];
+  function wire(root = document) {
+    for (const type of events) {
+      const attr = 'on' + type;
+      root.querySelectorAll?.(`[${attr}]`).forEach(el => {
+        if (el.dataset.pyflowInlineBridge === '1') return;
+        const code = el.getAttribute(attr);
+        if (!code) return;
+        el.dataset.pyflowInlineBridge = '1';
+        try { el[attr] = null; } catch {}
+        el.addEventListener(type, function(event) {
+          try {
+            eval(code);
+          } catch (error) {
+            window.__pyflowErrors?.push({
+              type: 'inline-event',
+              event: type,
+              code,
+              message: String(error?.message || error),
+            });
+            try { showToast?.('操作失敗：' + (error?.message || error), 'err', 3000); } catch {}
+          }
+        });
+      });
+    }
+  }
+  window.__pyflowInlineEventBridge = wire;
+  wire();
+  window.addEventListener('load', () => setTimeout(wire, 0), { once: true });
 })();
 </script>
 </body></html>
