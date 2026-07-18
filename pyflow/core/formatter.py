@@ -20,13 +20,14 @@ def _run(cmd: list[str], code: str, stdin_code: bool = True,
         if stdin_code:
             result = subprocess.run(
                 cmd, input=code, capture_output=True, text=True,
-                timeout=timeout, cwd=cwd,
+                encoding='utf-8', errors='replace', timeout=timeout, cwd=cwd,
             )
             formatted = result.stdout if result.returncode == 0 else code
             err = result.stderr.strip() if result.returncode != 0 and result.stderr else None
         else:
             result = subprocess.run(
-                cmd, capture_output=True, text=True, timeout=timeout, cwd=cwd,
+                cmd, capture_output=True, text=True, encoding='utf-8',
+                errors='replace', timeout=timeout, cwd=cwd,
             )
             formatted = open(code, encoding='utf-8').read()  # code = tmp file path
             err = result.stderr.strip() if result.returncode != 0 and result.stderr else None
@@ -43,7 +44,7 @@ def format_python(code: str) -> dict:
     """用 black 格式化 Python，不需要安裝 black 為系統指令。"""
     # Try: python -m black -
     formatted, err = _run([sys.executable, '-m', 'black', '-q', '-'], code)
-    if err and '沒有模組' not in err and 'No module' not in err.lower():
+    if err and '沒有模組' not in err and 'no module' not in err.lower():
         return {'formatted': formatted, 'error': err, 'tool': 'black'}
     if err and ('No module' in err or 'no module' in err.lower()):
         # Try system black

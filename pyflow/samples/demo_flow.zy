@@ -1,0 +1,68 @@
+import <std/math>;
+import <std/string> as text;
+
+// Keep a value inside the accepted processing range.
+fn clamp(value: int, minimum: int = 0, maximum: int = 100) -> int {
+    if (value < minimum) {
+        return minimum;
+    }
+    if (value > maximum) {
+        return maximum;
+    }
+    return value;
+}
+
+struct Record {
+    let this.value: int;
+    let this.label: str = "sample";
+
+    fn scaled(multiplier: int = 1) -> int {
+        return clamp(this.value * multiplier);
+    }
+}
+
+struct Pipeline {
+    let this.multiplier: int = 2;
+    let this.transform: fn(int)->int = None;
+
+    fn normalize(record: Record) -> int {
+        return record.scaled(multiplier: this.multiplier);
+    }
+
+    fn summarize(value: int) -> int {
+        return clamp(value, maximum: 90);
+    }
+
+    fn process(record: Record) -> int {
+        let normalized: int = this.normalize(record);
+        return this.summarize(normalized);
+    }
+}
+
+// Returning a named closure preserves the captured factor snapshot.
+fn make_mapper(factor: int) -> fn(int)->int {
+    fn map_value(value: int) -> int {
+        return clamp(value * factor);
+    }
+    return map_value;
+}
+
+fn apply(op: fn(int)->int, value: int) -> int {
+    return op(value);
+}
+
+fn render(value: int) -> void {
+    // print accepts str; the f-string expression produces str.
+    print(f"result={value}");
+}
+
+fn main() -> int {
+    let pipeline: Pipeline = Pipeline { multiplier: 3 };
+    let record: Record = Record { value: 14, label: "demo" };
+    let mapper: fn(int)->int = make_mapper(2);
+    let processed: int = pipeline.process(record);
+    let mapped: int = apply(mapper, processed);
+    render(mapped);
+    render(make_mapper(2)(record.value));
+    return 0;
+}

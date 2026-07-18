@@ -1,92 +1,55 @@
-# ⬡ PyFlow IDE
+# PyFlow IDE
 
-> **程式碼流程可視化 IDE** — 讓你的程式碼「看得見」
+PyFlow IDE 是一套純 PyQt 桌面程式碼編輯器，採用 Claude 風格深色介面，重點是讓程式碼結構與呼叫關係能直接視覺化。
 
-PyFlow 是一個獨特的 IDE：寫程式時右側即時顯示**互動式流程圖**，支援 10 種語言、LSP 補全、Claude AI 助手、執行軌跡視覺化，以及雙向節點編程（直接在圖上修改程式碼）。
+## Windows 下載
 
-## ✨ 核心特色
+1. 前往 [GitHub Releases](https://github.com/Ryan-2013/pyflow-ide/releases)。
+2. 下載最新的 `PyFlow-IDE-Windows-v*.zip`。
+3. 解壓縮整個 ZIP。
+4. 雙擊資料夾中的 `PyFlow IDE.exe`。
 
-- **即時流程圖** — 游標移動，對應節點高亮；雙向同步，節點即程式碼
-- **執行軌跡** — 跑一次程式，流程圖高亮實際執行路徑 + 呼叫次數
-- **AI 助手** — Claude API 整合，上下文感知（知道你的函式在幹嘛）
-- **10 種語言** — Python / Go / Rust / JS / TS / Java / C / C++ / Shell / Jupyter
-- **完整 IDE** — LSP、偵錯器、Git、搜尋、呼叫圖、Profiler、Coverage
+Windows 套件採資料夾型封裝，執行時不需要 Electron 或本機 Web 伺服器，也不會把整個應用程式解壓到記憶體。請勿只把 EXE 單獨移出資料夾。
 
-## 🚀 快速開始
+## 目前功能
 
-```bash
-# macOS / Linux
-git clone https://github.com/YOUR_USERNAME/pyflow-ide
-cd pyflow-ide
-./start.sh
+- 中文與 English 介面
+- 檔案／資料夾建立、重新命名、刪除與搜尋
+- 行號、語法高亮、自動縮排、程式碼補全與函式簽名
+- Python、Rust、Go、C、C++、ZyenLang 呼叫關係節點圖
+- 節點搜尋、呼叫者／被呼叫者資訊與前往程式碼
+- 可停止的 Python 執行程序
+- 內建互動式 PowerShell，可使用 `Ctrl+`` 開啟或關閉
+- 全介面快速縮放
 
-# Windows
-start.bat
+執行 Python 檔案需要電腦已安裝 Python 3。封裝版會從 `PATH` 自動尋找 Python，也可用 `PYFLOW_PYTHON` 環境變數指定 `python.exe`。
+
+## 從原始碼啟動
+
+需要 Python 3.10 或更新版本：
+
+```powershell
+python -m pip install -r pyflow/requirements.txt
+python pyflow/qt_app.py
 ```
 
-啟動後點 **⚙** 按鈕一鍵安裝 LSP。
+Windows 也可直接執行 `start-qt.bat`。
 
-## ⚙️ 安裝 LSP
+## 建置 Windows 套件
 
-```bash
-pip install python-lsp-server[all]           # Python
-go install golang.org/x/tools/gopls@latest   # Go  
-rustup component add rust-analyzer            # Rust
-npm install -g typescript-language-server     # TypeScript/JS
+```powershell
+.\build.bat
 ```
 
-## 🏗️ 架構
+輸出檔案位於 `dist/PyFlow-IDE-Windows-v1.1.0.zip`。
 
+## 驗證
+
+```powershell
+python pyflow/qt_app.py --self-test
+python -m py_compile pyflow/qt_app.py pyflow/qt_services.py pyflow/qt_languages.py pyflow/qt_zyenlang.py
 ```
-pyflow/
-├── app.py          # Flask + Socket.IO 後端
-├── core/           # LSP、Git、Tracer、Search、Setup
-├── plugins/        # 10 個語言插件（可熱重載）
-└── static/index.html  # 完整前端（8,335 行）
-```
 
-**新增語言**：把 `lang_X.py` 放進 `plugins/`，自動載入。
+## 授權
 
-## 📊 測試
-
-- Python 1,000 stdlib 檔案：**100% 準確率**，3.6ms/file
-- 26 個 API 路由：**全部通過**
-
-## ⌨️ 快捷鍵
-
-| | |
-|--|--|
-| `Ctrl+P` | 模糊搜尋檔案 |
-| `Ctrl+Shift+1/2/3` | 程式碼 / 並排 / 流程圖 |
-| `Ctrl+Shift+T` | 恢復關閉的標籤 |
-| `雙擊節點` | 重新命名函式 |
-| `右鍵節點` | 新增/刪除/插入呼叫 |
-| `拖曳 ● 綠點` | 建立函式呼叫關係 |
-
-
-## 👥 開發者
-
-<table>
-  <tr>
-    <td align="center">
-      <a href="https://github.com/Ryan-2013">
-        <img src="https://github.com/Ryan-2013.png" width="64"/><br/>
-        <b>Ryan</b>
-      </a><br/>
-      <sub>創始人 · 產品設計</sub>
-    </td>
-    <td align="center">
-      <a href="https://anthropic.com">
-        <img src="https://avatars.githubusercontent.com/u/76263028?s=64" width="64"/><br/>
-        <b>Claude</b>
-      </a><br/>
-      <sub>AI 協同開發 · 全端實作</sub>
-    </td>
-  </tr>
-</table>
-
-> 本專案由 Ryan 主導方向，Claude（Anthropic）負責全端實作，在一次對話中完成所有 19,810 行程式碼。
-
-## 📄 授權
-
-MIT License
+MIT

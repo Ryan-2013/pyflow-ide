@@ -1,113 +1,62 @@
-name: 🚀 Build & Release
+name: Build Windows Release
 
 on:
   push:
-    tags: ['v*']
+    tags: ["v*"]
   workflow_dispatch:
 
 permissions:
   contents: write
 
 jobs:
-  build:
-    name: Build (${{ matrix.os }})
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - os: ubuntu-latest
-            artifact_ext: "*.AppImage *.deb"
-          - os: windows-latest
-            artifact_ext: "*.exe"
-          - os: macos-latest
-            artifact_ext: "*.dmg"
-
+  windows:
+    runs-on: windows-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Python 3.11
+      - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: "3.11"
 
-      # ⬇️ 修正 1：補上 simple-websocket（threading 模式的 WebSocket 支援）
-      #    app.py 用的是 async_mode='threading'，不是 eventlet，
-      #    所以其實不需要 eventlet；simple-websocket 才是真正要打包的。
-      - name: Install Python deps + PyInstaller
+      - name: Install dependencies
         run: |
           python -m pip install -r pyflow/requirements.txt
           python -m pip install pyinstaller==6.3.0
 
-      - name: Bundle Python backend
+      - name: Run source self-test
+        run: python pyflow/qt_app.py --self-test
+
+      - name: Build PyQt desktop application
+        run: python -m PyInstaller pyflow.spec --distpath dist --workpath build/pyinstaller --clean --noconfirm
+
+      - name: Test packaged application
+        shell: pwsh
         run: |
-          python -m PyInstaller pyflow.spec --distpath dist-server --clean --noconfirm
+          $process = Start-Process -FilePath "dist/PyFlow IDE/PyFlow IDE.exe" -ArgumentList "--smoke" -Wait -PassThru
+          if ($process.ExitCode -ne 0) { throw "Packaged smoke test failed with exit code $($process.ExitCode)" }
 
-      - name: List server binary
-        run: ls dist-server/
+      - name: Create Windows archive
+        shell: pwsh
+        run: Compress-Archive -Path "dist/PyFlow IDE/*" -DestinationPath "dist/PyFlow-IDE-Windows-${{ github.ref_name }}.zip" -CompressionLevel Optimal
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v4
         with:
-          node-version: '20'
+          name: PyFlow-IDE-Windows-${{ github.ref_name }}
+          path: dist/PyFlow-IDE-Windows-${{ github.ref_name }}.zip
 
-      - name: Install Node deps
-        run: npm ci || npm install
-
-      - name: Build Electron app (Windows)
-        if: runner.os == 'Windows'
-        run: |
-          npm run pack
-          7z a -tzip "dist\PyFlow-IDE-Windows-${{ github.ref_name }}.zip" ".\dist\win-unpacked\*"
-        env:
-          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
-          WIN_CSC_LINK: ''
-          WIN_CSC_KEY_PASSWORD: ''
-
-      - name: Build Electron app (macOS)
-        if: runner.os == 'macOS'
-        run: npx electron-builder --mac --publish never
-        env:
-          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
-
-      - name: Build Electron app (Linux)
-        if: runner.os == 'Linux'
-        run: npx electron-builder --linux --publish never
-
-      - name: List dist files
-        run: ls dist/
-
-      - name: Upload to Release
-        uses: softprops/action-gh-release@v2
+      - name: Publish GitHub Release
         if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
         with:
-          files: |
-            dist/*.exe
-            dist/*.zip
-            dist/*.dmg
-            dist/*.AppImage
-            dist/*.deb
+          files: dist/PyFlow-IDE-Windows-${{ github.ref_name }}.zip
           name: PyFlow IDE ${{ github.ref_name }}
+          generate_release_notes: true
           body: |
-            ## ⬡ PyFlow IDE ${{ github.ref_name }}
+            ## Windows 下載
 
-            ### 下載
+            下載 `PyFlow-IDE-Windows-${{ github.ref_name }}.zip`，解壓縮後雙擊 `PyFlow IDE.exe`。
 
-            | 平台 | 檔案 |
-            |------|------|
-            | Windows | `PyFlow-IDE-Windows-*.zip` |
-            | macOS | `PyFlow-IDE-*.dmg` |
-            | Linux | `PyFlow-IDE-*.AppImage` |
-
-            ### 安裝說明
-            - **Windows**: 解壓縮後執行 `PyFlow IDE.exe`
-            - **macOS**: 拖曳到 Applications
-            - **Linux**: `chmod +x *.AppImage && ./*.AppImage`
-
-            ### 第一次執行
-            啟動後點 ⚙ 按鈕安裝 LSP 伺服器（選填）
-          draft: false
-          prerelease: false
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+            這是純 PyQt 桌面版，不需要啟動 Electron 或本機 Web 伺服器。
