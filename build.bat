@@ -1,38 +1,31 @@
 @echo off
-:: PyFlow IDE — Windows Build Script
-title PyFlow IDE Build
+setlocal
+cd /d "%~dp0"
+set "VERSION=1.1.0"
 
 echo =====================================
-echo   PyFlow IDE - Windows Build Script
+echo   PyFlow IDE - PyQt Windows Build
 echo =====================================
 echo.
 
-:: Check Python
-python --version > nul 2>&1 || (
-  echo ERROR: Python not found. Please install Python 3.8+
-  pause & exit /b 1
+python --version >nul 2>&1 || (
+  echo ERROR: Python not found. Please install Python 3.10 or newer.
+  pause
+  exit /b 1
 )
 
-:: Check Node.js
-node --version > nul 2>&1 || (
-  echo ERROR: Node.js not found. Please install Node.js 18+
-  pause & exit /b 1
-)
+echo [1/3] Installing build dependencies...
+python -m pip install -r pyflow\requirements.txt pyinstaller==6.3.0 || exit /b 1
 
-echo [1/4] Installing Python dependencies...
-pip install -r pyflow\requirements.txt -q
-pip install pyinstaller -q
+echo [2/3] Building desktop application...
+python -m PyInstaller pyflow.spec --distpath dist --workpath build\pyinstaller --clean --noconfirm || exit /b 1
 
-echo [2/4] Bundling Python backend...
-python -m PyInstaller pyflow.spec --distpath dist-server --clean --noconfirm
-
-echo [3/4] Installing Node.js dependencies...
-npm install --silent
-
-echo [4/4] Building installer...
-npm run dist:win
+echo [3/3] Creating release archive...
+if exist "dist\PyFlow-IDE-Windows-v%VERSION%.zip" del /q "dist\PyFlow-IDE-Windows-v%VERSION%.zip"
+powershell -NoProfile -Command "Compress-Archive -Path 'dist\PyFlow IDE\*' -DestinationPath 'dist\PyFlow-IDE-Windows-v%VERSION%.zip' -CompressionLevel Optimal" || exit /b 1
 
 echo.
-echo Build complete! Check dist\ folder.
-dir dist\*.exe
+echo Build complete:
+echo   dist\PyFlow-IDE-Windows-v%VERSION%.zip
+echo.
 pause
