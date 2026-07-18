@@ -37,26 +37,32 @@ jobs:
           $process = Start-Process -FilePath "dist/PyFlow IDE/PyFlow IDE.exe" -ArgumentList "--smoke" -Wait -PassThru
           if ($process.ExitCode -ne 0) { throw "Packaged smoke test failed with exit code $($process.ExitCode)" }
 
+      - name: Set artifact name
+        shell: pwsh
+        run: |
+          $safeRef = "${{ github.ref_name }}" -replace '[^A-Za-z0-9._-]', '-'
+          "PYFLOW_ARCHIVE=PyFlow-IDE-Windows-$safeRef.zip" >> $env:GITHUB_ENV
+
       - name: Create Windows archive
         shell: pwsh
-        run: Compress-Archive -Path "dist/PyFlow IDE/*" -DestinationPath "dist/PyFlow-IDE-Windows-${{ github.ref_name }}.zip" -CompressionLevel Optimal
+        run: Compress-Archive -Path "dist/PyFlow IDE/*" -DestinationPath "dist/$env:PYFLOW_ARCHIVE" -CompressionLevel Optimal
 
       - name: Upload workflow artifact
         uses: actions/upload-artifact@v4
         with:
-          name: PyFlow-IDE-Windows-${{ github.ref_name }}
-          path: dist/PyFlow-IDE-Windows-${{ github.ref_name }}.zip
+          name: ${{ env.PYFLOW_ARCHIVE }}
+          path: dist/${{ env.PYFLOW_ARCHIVE }}
 
       - name: Publish GitHub Release
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/PyFlow-IDE-Windows-${{ github.ref_name }}.zip
+          files: dist/${{ env.PYFLOW_ARCHIVE }}
           name: PyFlow IDE ${{ github.ref_name }}
           generate_release_notes: true
           body: |
             ## Windows 下載
 
-            下載 `PyFlow-IDE-Windows-${{ github.ref_name }}.zip`，解壓縮後雙擊 `PyFlow IDE.exe`。
+            下載 `${{ env.PYFLOW_ARCHIVE }}`，解壓縮後雙擊 `PyFlow IDE.exe`。
 
             這是純 PyQt 桌面版，不需要啟動 Electron 或本機 Web 伺服器。
