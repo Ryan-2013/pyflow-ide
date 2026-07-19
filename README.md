@@ -41,7 +41,7 @@ Windows 也可直接執行 `start-qt.bat`。
 .\build.bat
 ```
 
-輸出檔案位於 `dist/PyFlow-IDE-Windows-v1.1.0.zip`。
+輸出檔案位於 `dist/PyFlow-IDE-Windows-v1.1.1.zip`。
 
 ## 驗證
 

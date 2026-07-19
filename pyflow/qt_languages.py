@@ -489,6 +489,17 @@ def context_completion_details(
 
 
 class LanguageHighlighter(QtGui.QSyntaxHighlighter):
+    BASE_COLORS = {
+        "keyword": "#d99172",
+        "type": "#7fa8c9",
+        "function": "#e1bc7a",
+        "string": "#a8c57f",
+        "number": "#b9a0cf",
+        "comment": "#77756e",
+    }
+    EDITOR_BACKGROUND = QtGui.QColor("#191917")
+    HIGH_CONTRAST = QtGui.QColor("#f5f2ea")
+
     def __init__(self, document: QtGui.QTextDocument) -> None:
         super().__init__(document)
         self.language = "text"
@@ -536,6 +547,44 @@ class LanguageHighlighter(QtGui.QSyntaxHighlighter):
         self.call_pattern = QtCore.QRegularExpression(
             r"\b([A-Za-z_][A-Za-z0-9_]*!?)\s*(?=\()"
         )
+        self.syntax_contrast = {name: 100 for name in self.BASE_COLORS}
+
+    @classmethod
+    def _contrast_color(cls, color: str, contrast: int) -> QtGui.QColor:
+        target = QtGui.QColor(color)
+        value = max(0, min(200, int(contrast)))
+        if value <= 100:
+            source = cls.EDITOR_BACKGROUND
+            ratio = value / 100
+        else:
+            source = target
+            target = cls.HIGH_CONTRAST
+            ratio = (value - 100) / 100
+        return QtGui.QColor(
+            round(source.red() + (target.red() - source.red()) * ratio),
+            round(source.green() + (target.green() - source.green()) * ratio),
+            round(source.blue() + (target.blue() - source.blue()) * ratio),
+        )
+
+    def set_syntax_contrast(self, values: dict[str, int]) -> None:
+        for name in self.BASE_COLORS:
+            if name in values:
+                self.syntax_contrast[name] = max(0, min(200, int(values[name])))
+        formats = {
+            "keyword": self.keyword_format,
+            "type": self.type_format,
+            "function": self.function_format,
+            "string": self.string_format,
+            "number": self.number_format,
+            "comment": self.comment_format,
+        }
+        for name, char_format in formats.items():
+            char_format.setForeground(
+                self._contrast_color(
+                    self.BASE_COLORS[name], self.syntax_contrast[name]
+                )
+            )
+        self.rehighlight()
 
     def set_language(self, language: str) -> None:
         self.language = language

@@ -75,8 +75,8 @@ if sys.platform == "darwin":
         icon=str(ICON),
         bundle_identifier="com.pyflow.ide",
         info_plist={
-            "CFBundleShortVersionString": "1.1.0",
-            "CFBundleVersion": "1.1.0",
+            "CFBundleShortVersionString": "1.1.1",
+            "CFBundleVersion": "1.1.1",
             "NSHighResolutionCapable": True,
         },
     )
