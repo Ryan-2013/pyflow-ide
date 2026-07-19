@@ -17,7 +17,7 @@ import qt_languages as qlang
 import qt_services as svc
 
 
-APP_VERSION = "1.1.0"
+APP_VERSION = "1.1.1"
 GRAPH_LANGUAGES = {"python", "rust", "go", "c", "cpp", "zyenlang"}
 NODE_DEMOS = {
     "python": ("Python", "demo_flow.py"),
@@ -27,6 +27,14 @@ NODE_DEMOS = {
     "cpp": ("C++", "demo_flow.cpp"),
     "zyenlang": ("ZyenLang", "demo_flow.zy"),
 }
+SYNTAX_CONTRAST_OPTIONS = (
+    ("keyword", "關鍵字對比度"),
+    ("comment", "註解對比度"),
+    ("string", "字串對比度"),
+    ("function", "函式對比度"),
+    ("type", "型別對比度"),
+    ("number", "數字對比度"),
+)
 
 
 def python_runtime_command() -> tuple[str, list[str]] | None:
@@ -353,6 +361,9 @@ class CodeEditor(QtWidgets.QPlainTextEdit):
         self._update_line_number_area_width()
         self.line_number_area.update()
 
+    def set_syntax_contrast(self, values: dict[str, int]) -> None:
+        self.highlighter.set_syntax_contrast(values)
+
     def line_number_area_width(self) -> int:
         digits = max(2, len(str(max(1, self.blockCount()))))
         return 12 + self.fontMetrics().horizontalAdvance("9") * digits
@@ -550,6 +561,21 @@ class CodeEditor(QtWidgets.QPlainTextEdit):
             cursor.movePosition(QtGui.QTextCursor.MoveOperation.Left)
         self.setTextCursor(cursor)
 
+    def _select_first_completion(self) -> None:
+        popup = self.completer.popup()
+        model = self.completer.completionModel()
+        if model.rowCount() <= 0:
+            return
+        self.completer.setCurrentRow(0)
+        first = model.index(0, 0)
+        popup.setCurrentIndex(first)
+        popup.selectionModel().setCurrentIndex(
+            first,
+            QtCore.QItemSelectionModel.SelectionFlag.ClearAndSelect
+            | QtCore.QItemSelectionModel.SelectionFlag.Rows,
+        )
+        popup.scrollTo(first)
+
     def _insert_newline_with_indent(self) -> None:
         cursor = self.textCursor()
         if cursor.hasSelection():
@@ -609,6 +635,98 @@ class CodeEditor(QtWidgets.QPlainTextEdit):
         cursor.setPosition(max(block.position(), original_position - remove_count))
         self.setTextCursor(cursor)
 
+    def _toggle_line_comment(self) -> None:
+        prefix = {
+            "python": "#",
+            "shell": "#",
+            "yaml": "#",
+            "toml": "#",
+            "rust": "//",
+            "go": "//",
+            "c": "//",
+            "cpp": "//",
+            "zyenlang": "//",
+            "javascript": "//",
+            "typescript": "//",
+            "sql": "--",
+        }.get(self.language)
+        if not prefix:
+            return
+
+        cursor = self.textCursor()
+        had_selection = cursor.hasSelection()
+        original_position = cursor.position()
+        start = cursor.selectionStart()
+        end = cursor.selectionEnd()
+        start_block = self.document().findBlock(start)
+        end_position = end
+        if had_selection and end > start:
+            end_block_at_cursor = self.document().findBlock(end)
+            if end_block_at_cursor.isValid() and end_block_at_cursor.position() == end:
+                end_position = end - 1
+        end_block = self.document().findBlock(max(start, end_position))
+        start_number = start_block.blockNumber()
+        end_number = end_block.blockNumber()
+
+        blocks = [
+            self.document().findBlockByNumber(number)
+            for number in range(start_number, end_number + 1)
+        ]
+        nonempty = [block for block in blocks if block.text().strip()]
+        uncomment = bool(nonempty) and all(
+            block.text().lstrip(" \t").startswith(prefix) for block in nonempty
+        )
+
+        operations: list[tuple[int, int, str]] = []
+        for block in blocks:
+            text = block.text()
+            leading = len(text) - len(text.lstrip(" \t"))
+            content = text[leading:]
+            position = block.position() + leading
+            if uncomment:
+                if not content.startswith(prefix):
+                    continue
+                remove_count = len(prefix)
+                if content[remove_count:].startswith(" "):
+                    remove_count += 1
+                operations.append((position, remove_count, ""))
+            elif text.strip() or len(blocks) == 1:
+                operations.append((position, 0, prefix + " "))
+
+        if not operations:
+            return
+        edit = QtGui.QTextCursor(self.document())
+        edit.beginEditBlock()
+        for position, remove_count, replacement in reversed(operations):
+            edit.setPosition(position)
+            if remove_count:
+                edit.setPosition(
+                    position + remove_count,
+                    QtGui.QTextCursor.MoveMode.KeepAnchor,
+                )
+            edit.insertText(replacement)
+        edit.endEditBlock()
+
+        restored = self.textCursor()
+        if had_selection:
+            first_block = self.document().findBlockByNumber(start_number)
+            last_block = self.document().findBlockByNumber(end_number)
+            restored.setPosition(first_block.position())
+            restored.setPosition(
+                last_block.position() + len(last_block.text()),
+                QtGui.QTextCursor.MoveMode.KeepAnchor,
+            )
+        else:
+            position, remove_count, replacement = operations[0]
+            delta = len(replacement) - remove_count
+            new_position = original_position
+            if original_position >= position + remove_count:
+                new_position += delta
+            elif original_position > position:
+                new_position = position + len(replacement)
+            restored.setPosition(max(0, new_position))
+        self.setTextCursor(restored)
+
     def eventFilter(self, watched: QtCore.QObject, event: QtCore.QEvent) -> bool:
         if (
             watched is getattr(self, "find_input", None)
@@ -645,6 +763,14 @@ class CodeEditor(QtWidgets.QPlainTextEdit):
             event.accept()
             return
         popup = self.completer.popup()
+        if (
+            event.key() == QtCore.Qt.Key.Key_Slash
+            and event.modifiers() & QtCore.Qt.KeyboardModifier.ControlModifier
+        ):
+            self._toggle_line_comment()
+            popup.hide()
+            event.accept()
+            return
         if popup.isVisible() and event.key() in {
             QtCore.Qt.Key.Key_Enter,
             QtCore.Qt.Key.Key_Return,
@@ -715,7 +841,6 @@ class CodeEditor(QtWidgets.QPlainTextEdit):
             popup.hide()
             return
 
-        popup.setCurrentIndex(self.completer.completionModel().index(0, 0))
         rect = self.cursorRect()
         popup.resizeColumnToContents(0)
         popup.resizeColumnToContents(1)
@@ -728,6 +853,7 @@ class CodeEditor(QtWidgets.QPlainTextEdit):
         available_width = max(420, min(self.viewport().width() - 24, 920))
         rect.setWidth(max(340, min(width, available_width)))
         self.completer.complete(rect)
+        self._select_first_completion()
 
     def goto_line(self, line: int) -> None:
         if line < 1:
@@ -1761,6 +1887,16 @@ class SettingsDialog(QtWidgets.QDialog):
         self.font_size.setValue(parent.editor_font_size)
         self.wrap = QtWidgets.QCheckBox(parent.t("自動換行"))
         self.wrap.setChecked(parent.word_wrap)
+        self.auto_save = QtWidgets.QCheckBox(parent.t("自動儲存"))
+        self.auto_save.setChecked(parent.auto_save_enabled)
+        self.auto_save_delay = QtWidgets.QDoubleSpinBox()
+        self.auto_save_delay.setDecimals(1)
+        self.auto_save_delay.setRange(0.1, 30.0)
+        self.auto_save_delay.setSingleStep(0.1)
+        self.auto_save_delay.setValue(parent.auto_save_delay_ms / 1000)
+        self.auto_save_delay.setEnabled(self.auto_save.isChecked())
+        self.auto_save.toggled.connect(self.auto_save_delay.setEnabled)
+        self.syntax_contrast_sliders: dict[str, QtWidgets.QSlider] = {}
         self.interface_language = QtWidgets.QComboBox()
         self.interface_language.addItem("中文", "zh_TW")
         self.interface_language.addItem("English", "en")
@@ -1770,6 +1906,29 @@ class SettingsDialog(QtWidgets.QDialog):
         form = QtWidgets.QFormLayout()
         form.addRow(parent.t("介面與程式碼大小"), self.font_size)
         form.addRow("", self.wrap)
+        form.addRow("", self.auto_save)
+        form.addRow(parent.t("自動儲存延遲（秒）"), self.auto_save_delay)
+        for name, label_text in SYNTAX_CONTRAST_OPTIONS:
+            slider = QtWidgets.QSlider(QtCore.Qt.Orientation.Horizontal)
+            slider.setRange(0, 200)
+            slider.setSingleStep(1)
+            slider.setPageStep(10)
+            slider.setValue(parent.syntax_contrast[name])
+            value_label = QtWidgets.QLabel(f"{slider.value()}%")
+            value_label.setMinimumWidth(42)
+            value_label.setAlignment(QtCore.Qt.AlignmentFlag.AlignRight)
+            slider.valueChanged.connect(
+                lambda value, output=value_label: output.setText(f"{value}%")
+            )
+            slider.valueChanged.connect(self._preview_syntax_contrast)
+            row = QtWidgets.QWidget()
+            row_layout = QtWidgets.QHBoxLayout(row)
+            row_layout.setContentsMargins(0, 0, 0, 0)
+            row_layout.setSpacing(8)
+            row_layout.addWidget(slider, 1)
+            row_layout.addWidget(value_label)
+            self.syntax_contrast_sliders[name] = slider
+            form.addRow(parent.t(label_text), row)
         form.addRow(parent.t("介面語言"), self.interface_language)
 
         buttons = QtWidgets.QDialogButtonBox(
@@ -1782,6 +1941,20 @@ class SettingsDialog(QtWidgets.QDialog):
         layout = QtWidgets.QVBoxLayout(self)
         layout.addLayout(form)
         layout.addWidget(buttons)
+        self.rejected.connect(
+            lambda: parent._apply_syntax_contrast(parent.syntax_contrast)
+        )
+
+    def syntax_contrast_values(self) -> dict[str, int]:
+        return {
+            name: slider.value()
+            for name, slider in self.syntax_contrast_sliders.items()
+        }
+
+    def _preview_syntax_contrast(self, _: int) -> None:
+        parent = self.parent()
+        if isinstance(parent, MainWindow):
+            parent._apply_syntax_contrast(self.syntax_contrast_values())
 
 
 class GraphWorkerSignals(QtCore.QObject):
@@ -1822,6 +1995,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self.current_dir = start_dir or str(Path.home())
         self.path_to_tab: dict[str, int] = {}
         self.encoding_by_path: dict[str, str] = {}
+        self.file_signatures: dict[str, tuple[int, int, int] | None] = {}
+        self.pending_auto_save_paths: set[str] = set()
+        self.reloading_paths: set[str] = set()
         self.process: QtCore.QProcess | None = None
         self.process_stopping = False
         self.running_path: str | None = None
@@ -1831,10 +2007,39 @@ class MainWindow(QtWidgets.QMainWindow):
         self.editor_font_size = 11
         self.ui_font_size = 9
         self.word_wrap = False
+        self.auto_save_enabled = self.settings.value(
+            "auto_save_enabled", False, type=bool
+        )
+        self.auto_save_delay_ms = max(
+            100,
+            min(
+                30_000,
+                self.settings.value("auto_save_delay_ms", 1000, type=int),
+            ),
+        )
+        self.syntax_contrast = {
+            name: max(
+                0,
+                min(
+                    200,
+                    self.settings.value(
+                        f"syntax_contrast/{name}", 100, type=int
+                    ),
+                ),
+            )
+            for name, _ in SYNTAX_CONTRAST_OPTIONS
+        }
 
         self._build_ui()
         self._build_actions()
         self._build_menus()
+        self.auto_save_timer = QtCore.QTimer(self)
+        self.auto_save_timer.setSingleShot(True)
+        self.auto_save_timer.timeout.connect(self._perform_auto_save)
+        self.file_sync_timer = QtCore.QTimer(self)
+        self.file_sync_timer.setInterval(750)
+        self.file_sync_timer.timeout.connect(self._check_external_changes)
+        self.file_sync_timer.start()
         QtWidgets.QApplication.instance().installEventFilter(self)
         self.open_folder(self.current_dir)
         self.statusBar().showMessage(
@@ -1842,6 +2047,9 @@ class MainWindow(QtWidgets.QMainWindow):
         )
 
     def closeEvent(self, event: QtGui.QCloseEvent) -> None:
+        self.file_sync_timer.stop()
+        if self.auto_save_enabled:
+            self._perform_auto_save()
         self.terminal_panel.stop()
         app = QtWidgets.QApplication.instance()
         if app is not None:
@@ -2202,6 +2410,12 @@ class MainWindow(QtWidgets.QMainWindow):
             new_editor_path = str(Path(target) / relative)
             old_encoding = self.encoding_by_path.pop(old_editor_path, "utf-8")
             self.encoding_by_path[new_editor_path] = old_encoding
+            was_pending = old_editor_path in self.pending_auto_save_paths
+            self.pending_auto_save_paths.discard(old_editor_path)
+            if was_pending:
+                self.pending_auto_save_paths.add(new_editor_path)
+            self.file_signatures.pop(old_editor_path, None)
+            self.file_signatures[new_editor_path] = self._file_signature(new_editor_path)
             editor.setProperty("path", new_editor_path)
             self.tabs.setTabText(
                 index,
@@ -2264,6 +2478,10 @@ class MainWindow(QtWidgets.QMainWindow):
             if isinstance(editor, CodeEditor) and self._same_or_child(
                 str(editor.property("path")), target
             ):
+                editor_path = str(editor.property("path"))
+                self.encoding_by_path.pop(editor_path, None)
+                self.file_signatures.pop(editor_path, None)
+                self.pending_auto_save_paths.discard(editor_path)
                 self.tabs.removeTab(index)
         self._refresh_tab_map()
         self.statusBar().showMessage(self.t("已刪除：{path}", path=target))
@@ -2339,6 +2557,7 @@ class MainWindow(QtWidgets.QMainWindow):
         editor.document().setModified(False)
         editor.set_language(svc.language_for_path(path))
         editor.set_editor_font_size(self.editor_font_size)
+        editor.set_syntax_contrast(self.syntax_contrast)
         editor.setLineWrapMode(
             QtWidgets.QPlainTextEdit.LineWrapMode.WidgetWidth
             if self.word_wrap
@@ -2348,19 +2567,155 @@ class MainWindow(QtWidgets.QMainWindow):
         editor.document().modificationChanged.connect(
             lambda modified, e=editor: self._set_tab_dirty(str(e.property("path")), modified)
         )
+        editor.textChanged.connect(lambda e=editor: self._editor_text_changed(e))
         editor.zoomRequested.connect(self.zoom_by)
 
         idx = self.tabs.addTab(editor, Path(path).name)
         self.tabs.setCurrentIndex(idx)
         self.path_to_tab[path] = idx
         self.encoding_by_path[path] = result.encoding
+        self.file_signatures[path] = self._file_signature(path)
         self.statusBar().showMessage(
             self.t("已開啟：{path}（{encoding}）", path=path, encoding=result.encoding)
         )
         self.analyze_current()
 
+    @staticmethod
+    def _file_signature(path: str) -> tuple[int, int, int] | None:
+        try:
+            stat = Path(path).stat()
+            return stat.st_mtime_ns, stat.st_ctime_ns, stat.st_size
+        except OSError:
+            return None
+
+    def _editor_text_changed(self, editor: CodeEditor) -> None:
+        path = str(editor.property("path") or "")
+        if not path or path in self.reloading_paths or not self.auto_save_enabled:
+            return
+        self.pending_auto_save_paths.add(path)
+        self.auto_save_timer.start(self.auto_save_delay_ms)
+
+    def _perform_auto_save(self) -> None:
+        pending = list(self.pending_auto_save_paths)
+        self.pending_auto_save_paths.clear()
+        for path in pending:
+            index = self.path_to_tab.get(path)
+            editor = self.tabs.widget(index) if index is not None else None
+            if not isinstance(editor, CodeEditor) or not editor.document().isModified():
+                continue
+            if self._file_signature(path) != self.file_signatures.get(path):
+                self._sync_external_change(path)
+                continue
+            self._save_editor(editor, automatic=True)
+
+    def _check_external_changes(self) -> None:
+        for path in list(self.path_to_tab):
+            if self._file_signature(path) != self.file_signatures.get(path):
+                self._sync_external_change(path)
+
+    def _sync_external_change(self, path: str) -> bool:
+        current_signature = self._file_signature(path)
+        if current_signature == self.file_signatures.get(path):
+            return False
+        self.file_signatures[path] = current_signature
+
+        index = self.path_to_tab.get(path)
+        editor = self.tabs.widget(index) if index is not None else None
+        if not isinstance(editor, CodeEditor):
+            return True
+        if current_signature is None:
+            self.pending_auto_save_paths.discard(path)
+            editor.document().setModified(True)
+            self.statusBar().showMessage(
+                self.t("檔案已由外部刪除：{path}", path=path)
+            )
+            return True
+
+        result = svc.read_text(path)
+        if result.error:
+            self.statusBar().showMessage(result.error)
+            return True
+        if result.content == editor.toPlainText():
+            self.encoding_by_path[path] = result.encoding
+            editor.document().setModified(False)
+            self.pending_auto_save_paths.discard(path)
+            return True
+
+        if editor.document().isModified():
+            dialog = QtWidgets.QMessageBox(self)
+            dialog.setIcon(QtWidgets.QMessageBox.Icon.Warning)
+            dialog.setWindowTitle(self.t("外部檔案變更"))
+            dialog.setText(
+                self.t(
+                    "外部程式已修改 {name}，但 IDE 內也有尚未儲存的內容。",
+                    name=Path(path).name,
+                )
+            )
+            reload_button = dialog.addButton(
+                self.t("重新載入外部版本"),
+                QtWidgets.QMessageBox.ButtonRole.AcceptRole,
+            )
+            keep_button = dialog.addButton(
+                self.t("保留 IDE 內容"),
+                QtWidgets.QMessageBox.ButtonRole.RejectRole,
+            )
+            dialog.setDefaultButton(reload_button)
+            dialog.exec()
+            if dialog.clickedButton() is not reload_button:
+                self.pending_auto_save_paths.discard(path)
+                self.statusBar().showMessage(
+                    self.t("已保留 IDE 內的內容：{path}", path=path)
+                )
+                return True
+
+        self._reload_editor_from_disk(editor, path, result)
+        return True
+
+    def _reload_editor_from_disk(
+        self,
+        editor: CodeEditor,
+        path: str,
+        result: svc.ReadResult,
+    ) -> None:
+        cursor = editor.textCursor()
+        position = cursor.position()
+        anchor = cursor.anchor()
+        vertical_scroll = editor.verticalScrollBar().value()
+        horizontal_scroll = editor.horizontalScrollBar().value()
+
+        self.reloading_paths.add(path)
+        try:
+            editor.setPlainText(result.content)
+            editor.document().setModified(False)
+        finally:
+            self.reloading_paths.discard(path)
+
+        maximum = max(0, len(result.content))
+        restored = editor.textCursor()
+        restored.setPosition(min(anchor, maximum))
+        restored.setPosition(
+            min(position, maximum), QtGui.QTextCursor.MoveMode.KeepAnchor
+        )
+        editor.setTextCursor(restored)
+        editor.verticalScrollBar().setValue(vertical_scroll)
+        editor.horizontalScrollBar().setValue(horizontal_scroll)
+        self.encoding_by_path[path] = result.encoding
+        self.file_signatures[path] = self._file_signature(path)
+        self.pending_auto_save_paths.discard(path)
+        self._set_tab_dirty(path, False)
+        if editor is self.active_editor():
+            self.analyze_current()
+        self.statusBar().showMessage(
+            self.t("已同步外部變更：{path}", path=path)
+        )
+
     def _mark_dirty(self, path: str) -> None:
-        self._set_tab_dirty(path, True)
+        index = self.path_to_tab.get(path)
+        editor = self.tabs.widget(index) if index is not None else None
+        if isinstance(editor, CodeEditor):
+            editor.document().setModified(True)
+        else:
+            self._set_tab_dirty(path, True)
 
     def _set_tab_dirty(self, path: str, dirty: bool) -> None:
         idx = self.path_to_tab.get(path)
@@ -2400,13 +2755,23 @@ class MainWindow(QtWidgets.QMainWindow):
                 self.tabs.setCurrentIndex(index)
                 if not self.save_current():
                     return
+        path = str(widget.property("path") or "") if widget else ""
         self.tabs.removeTab(index)
+        if path:
+            self.encoding_by_path.pop(path, None)
+            self.file_signatures.pop(path, None)
+            self.pending_auto_save_paths.discard(path)
         self._refresh_tab_map()
 
     def save_current(self) -> bool:
         editor = self.active_editor()
-        path = self.active_path()
-        if not editor or not path:
+        if not editor:
+            return False
+        return self._save_editor(editor)
+
+    def _save_editor(self, editor: CodeEditor, automatic: bool = False) -> bool:
+        path = str(editor.property("path") or "")
+        if not path:
             return False
         encoding = self.encoding_by_path.get(path, "utf-8")
         result = svc.write_text(path, editor.toPlainText(), encoding)
@@ -2416,9 +2781,13 @@ class MainWindow(QtWidgets.QMainWindow):
             )
             return False
         editor.document().setModified(False)
-        idx = self.tabs.currentIndex()
-        self.tabs.setTabText(idx, Path(path).name)
-        self.statusBar().showMessage(self.t("已儲存：{path}", path=path))
+        self.file_signatures[path] = self._file_signature(path)
+        self.pending_auto_save_paths.discard(path)
+        idx = self.path_to_tab.get(path)
+        if idx is not None:
+            self.tabs.setTabText(idx, Path(path).name)
+        message = "已自動儲存：{path}" if automatic else "已儲存：{path}"
+        self.statusBar().showMessage(self.t(message, path=path))
         return True
 
     def save_current_as(self) -> bool:
@@ -2431,9 +2800,14 @@ class MainWindow(QtWidgets.QMainWindow):
         if not path:
             return False
         old_path = self.active_path()
-        editor.setProperty("path", svc.normalize_path(path))
+        new_path = svc.normalize_path(path)
+        editor.setProperty("path", new_path)
         if old_path:
             self.path_to_tab.pop(old_path, None)
+            old_encoding = self.encoding_by_path.pop(old_path, "utf-8")
+            self.encoding_by_path[new_path] = old_encoding
+            self.file_signatures.pop(old_path, None)
+            self.pending_auto_save_paths.discard(old_path)
         self._refresh_tab_map()
         return self.save_current()
 
@@ -2788,16 +3162,41 @@ class MainWindow(QtWidgets.QMainWindow):
             return
         self.editor_font_size = dialog.font_size.value()
         self.word_wrap = dialog.wrap.isChecked()
+        self.auto_save_enabled = dialog.auto_save.isChecked()
+        self.auto_save_delay_ms = round(dialog.auto_save_delay.value() * 1000)
+        self.settings.setValue("auto_save_enabled", self.auto_save_enabled)
+        self.settings.setValue("auto_save_delay_ms", self.auto_save_delay_ms)
+        self.syntax_contrast = dialog.syntax_contrast_values()
+        for name, value in self.syntax_contrast.items():
+            self.settings.setValue(f"syntax_contrast/{name}", value)
+        if self.auto_save_enabled:
+            for index in range(self.tabs.count()):
+                editor = self.tabs.widget(index)
+                if isinstance(editor, CodeEditor) and editor.document().isModified():
+                    path = str(editor.property("path") or "")
+                    if path:
+                        self.pending_auto_save_paths.add(path)
+            if self.pending_auto_save_paths:
+                self.auto_save_timer.start(self.auto_save_delay_ms)
+        else:
+            self.auto_save_timer.stop()
+            self.pending_auto_save_paths.clear()
         selected_language = str(dialog.interface_language.currentData())
         if selected_language != self.interface_language:
             self.settings.setValue("interface_language", selected_language)
-            self.settings.sync()
             QtWidgets.QMessageBox.information(
                 self,
                 self.t("語言變更"),
                 self.t("介面語言會在下次啟動 PyFlow IDE 時套用。"),
             )
+        self.settings.sync()
         self._apply_editor_preferences()
+
+    def _apply_syntax_contrast(self, values: dict[str, int]) -> None:
+        for index in range(self.tabs.count()):
+            editor = self.tabs.widget(index)
+            if isinstance(editor, CodeEditor):
+                editor.set_syntax_contrast(values)
 
     def zoom_by(self, steps: int) -> None:
         self.editor_font_size = max(8, min(36, self.editor_font_size + steps))
@@ -2861,6 +3260,7 @@ class MainWindow(QtWidgets.QMainWindow):
             editor = self.tabs.widget(i)
             if isinstance(editor, CodeEditor):
                 editor.set_editor_font_size(self.editor_font_size)
+                editor.set_syntax_contrast(self.syntax_contrast)
                 mode = (
                     QtWidgets.QPlainTextEdit.LineWrapMode.WidgetWidth
                     if self.word_wrap
@@ -2902,6 +3302,8 @@ def main(argv: list[str] | None = None) -> int:
         interface_language="zh_TW" if args.self_test else None,
     )
     if args.self_test:
+        window.auto_save_enabled = False
+        window.auto_save_timer.stop()
         window.show()
         window.open_file(
             str(Path(__file__).resolve().parent / "samples" / "demo_flow.py")
@@ -2957,6 +3359,16 @@ def main(argv: list[str] | None = None) -> int:
             raise RuntimeError("python print completion is missing")
         if editor.completer.completionPrefix() != "pri":
             raise RuntimeError("python completion did not react to typed text")
+        completion_index = editor.completer.popup().currentIndex()
+        completion_preselected = (
+            completion_index.isValid()
+            and completion_index.row() == 0
+            and editor.completer.popup().selectionModel().isSelected(
+                completion_index
+            )
+        )
+        if not completion_preselected:
+            raise RuntimeError("first completion item was not preselected")
         QtTest.QTest.keyClick(editor, QtCore.Qt.Key.Key_Return)
         app.processEvents()
         if editor.toPlainText() != "print()":
@@ -3014,11 +3426,70 @@ def main(argv: list[str] | None = None) -> int:
             app.processEvents()
             if not language_editor.toPlainText().endswith("\n    "):
                 raise RuntimeError(f"{language} automatic indentation failed")
+
+            comment_prefix = "#" if language == "python" else "//"
+            original_comment_code = "    first\n\n    second"
+            language_editor.setPlainText(original_comment_code)
+            language_editor.selectAll()
+            QtTest.QTest.keyClick(
+                language_editor,
+                QtCore.Qt.Key.Key_Slash,
+                QtCore.Qt.KeyboardModifier.ControlModifier,
+            )
+            expected_comment_code = (
+                f"    {comment_prefix} first\n\n    {comment_prefix} second"
+            )
+            if language_editor.toPlainText() != expected_comment_code:
+                raise RuntimeError(f"{language} Ctrl+/ did not comment selected lines")
+            QtTest.QTest.keyClick(
+                language_editor,
+                QtCore.Qt.Key.Key_Slash,
+                QtCore.Qt.KeyboardModifier.ControlModifier,
+            )
+            if language_editor.toPlainText() != original_comment_code:
+                raise RuntimeError(f"{language} Ctrl+/ did not uncomment selected lines")
             editor_language_results[language] = {
                 "completion": expected,
                 "indent": 4,
                 "highlight": True,
+                "comment_toggle": True,
             }
+
+        contrast_editor = CodeEditor()
+        contrast_editor.set_language("python")
+        contrast_editor.setPlainText("if True:\n    # note")
+        contrast_values = {
+            "keyword": 35,
+            "comment": 160,
+            "string": 100,
+            "function": 100,
+            "type": 100,
+            "number": 100,
+        }
+        contrast_editor.set_syntax_contrast(contrast_values)
+        contrast_editor.highlighter.rehighlight()
+        app.processEvents()
+        keyword_contrast_color = (
+            contrast_editor.highlighter.keyword_format.foreground().color().name()
+        )
+        comment_contrast_color = (
+            contrast_editor.highlighter.comment_format.foreground().color().name()
+        )
+        expected_keyword_color = qlang.LanguageHighlighter._contrast_color(
+            qlang.LanguageHighlighter.BASE_COLORS["keyword"], 35
+        ).name()
+        expected_comment_color = qlang.LanguageHighlighter._contrast_color(
+            qlang.LanguageHighlighter.BASE_COLORS["comment"], 160
+        ).name()
+        if (
+            keyword_contrast_color != expected_keyword_color
+            or comment_contrast_color != expected_comment_color
+        ):
+            raise RuntimeError("syntax contrast colors were not applied")
+        syntax_contrast_result = {
+            "keyword": keyword_contrast_color,
+            "comment": comment_contrast_color,
+        }
 
         def completion_values(test_editor: CodeEditor) -> list[str]:
             model = test_editor.completer.completionModel()
@@ -3185,6 +3656,58 @@ def main(argv: list[str] | None = None) -> int:
                 f"Python completion signature is incomplete: {completion_signature!r}"
             )
 
+        original_tab_index = window.tabs.currentIndex()
+        sync_directory = QtCore.QTemporaryDir()
+        if not sync_directory.isValid():
+            raise RuntimeError("could not create external-sync test directory")
+        sync_path = Path(sync_directory.path()) / "external_sync.py"
+        sync_path.write_text("value = 1\n", encoding="utf-8")
+        window.open_file(str(sync_path))
+        sync_editor = window.active_editor()
+        if sync_editor is None:
+            raise RuntimeError("could not open external-sync test file")
+        sync_cursor = sync_editor.textCursor()
+        sync_cursor.setPosition(4)
+        sync_editor.setTextCursor(sync_cursor)
+        sync_path.write_text("external_value = 2\n", encoding="utf-8")
+        window._check_external_changes()
+        app.processEvents()
+        external_sync_result = (
+            sync_editor.toPlainText() == "external_value = 2\n"
+            and sync_editor.textCursor().position() == 4
+            and not sync_editor.document().isModified()
+        )
+        if not external_sync_result:
+            raise RuntimeError("external file changes were not synchronized")
+
+        sync_editor.setPlainText("auto_saved = True\n")
+        sync_editor.document().setModified(True)
+        window.auto_save_enabled = True
+        auto_save_delay = window.auto_save_delay_ms
+        window.auto_save_delay_ms = 100
+        window._editor_text_changed(sync_editor)
+        auto_save_deadline = QtCore.QElapsedTimer()
+        auto_save_deadline.start()
+        while (
+            sync_editor.document().isModified()
+            and auto_save_deadline.elapsed() < 1000
+        ):
+            app.processEvents()
+            QtTest.QTest.qWait(10)
+        auto_save_result = (
+            sync_path.read_text(encoding="utf-8") == "auto_saved = True\n"
+            and not sync_editor.document().isModified()
+        )
+        if not auto_save_result:
+            raise RuntimeError("auto-save did not write the edited file")
+        window.auto_save_delay_ms = auto_save_delay
+        window.auto_save_enabled = False
+        sync_index = window.path_to_tab.get(str(sync_path))
+        if sync_index is not None:
+            window.close_tab(sync_index)
+        window.tabs.setCurrentIndex(original_tab_index)
+        sync_directory.remove()
+
         english_window = MainWindow(args.folder or None, interface_language="en")
         english_settings = SettingsDialog(english_window)
         english_actions = {action.text() for action in english_window.toolbar.actions()}
@@ -3199,6 +3722,15 @@ def main(argv: list[str] | None = None) -> int:
             or english_window.terminal_panel.input.placeholderText()
             != "Enter a PowerShell command"
             or english_settings.windowTitle() != "Settings"
+            or english_settings.auto_save.text() != "Auto save"
+            or english_settings.auto_save_delay.minimum() != 0.1
+            or english_settings.auto_save_delay.singleStep() != 0.1
+            or set(english_settings.syntax_contrast_sliders)
+            != {name for name, _ in SYNTAX_CONTRAST_OPTIONS}
+            or any(
+                slider.minimum() != 0 or slider.maximum() != 200
+                for slider in english_settings.syntax_contrast_sliders.values()
+            )
             or "Open File" not in english_actions
         ):
             raise RuntimeError("English interface translation is incomplete")
@@ -3553,6 +4085,7 @@ def main(argv: list[str] | None = None) -> int:
                     "tree_zoom": [tree_font_before, tree_font_after],
                     "tree_icons": [tree_icon_before, tree_icon_after],
                     "print_completion": print_completion_text,
+                    "completion_preselected": completion_preselected,
                     "language_editor": editor_language_results,
                     "zyenlang_arguments": zyen_argument_result,
                     "python_symbols": python_symbol_results,
@@ -3570,6 +4103,9 @@ def main(argv: list[str] | None = None) -> int:
                     },
                     "completion_signature": completion_signature,
                     "interface_languages": ["zh_TW", "en"],
+                    "file_sync": external_sync_result,
+                    "auto_save": [auto_save_result, auto_save_delay],
+                    "syntax_contrast": syntax_contrast_result,
                     "node_demo": [
                         len(demo_graph.get("nodes") or []),
                         len(demo_graph.get("edges") or []),

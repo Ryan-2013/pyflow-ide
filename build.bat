@@ -1,7 +1,7 @@
 @echo off
 setlocal
 cd /d "%~dp0"
-set "VERSION=1.1.0"
+set "VERSION=1.1.1"
 
 echo =====================================
 echo   PyFlow IDE - PyQt Windows Build
